@@ -14,9 +14,40 @@ window below holds them for at most `window_seconds` and then drops them.
 """
 from __future__ import annotations
 
+import ipaddress
 import threading
 import time
-from collections import deque
+from collections import OrderedDict, deque
+
+#: IPv6 prefix length used as the throttling identity.
+#:
+#: EXTERNAL AUDIT, second pass, finding D-04. A single subscriber is
+#: handed a /64 -- eighteen billion billion addresses -- so limiting per
+#: full IPv6 address limits nothing at all: one machine simply uses a
+#: fresh source address per request. The /64 is the smallest unit that
+#: corresponds to one customer, and it is what makes the counter mean
+#: something. IPv4 keeps the full address; there is no equivalent
+#: allocation to collapse.
+IPV6_PREFIX = 64
+
+
+def client_identity(address) -> str:
+    """Return the key a limiter should count against, from an address.
+
+    Anything unparseable is returned unchanged: the key only has to be
+    stable and comparable, not meaningful. Nothing here is ever written
+    to the database.
+    """
+    if not address:
+        return "unknown"
+    try:
+        parsed = ipaddress.ip_address(address.strip("[]"))
+    except ValueError:
+        return address
+    if parsed.version == 4:
+        return parsed.compressed
+    network = ipaddress.ip_network("%s/%d" % (parsed.compressed, IPV6_PREFIX), strict=False)
+    return network.compressed
 
 
 class RateLimiter:
@@ -31,6 +62,14 @@ class RateLimiter:
     #: meant to blunt. At the ceiling the OLDEST key is evicted: the
     #: attacker can buy themselves a fresh budget, which is what the
     #: proxy-level limit is for, but they cannot exhaust memory.
+    #:
+    #: EXTERNAL AUDIT, second pass, finding D-03: bounding the memory
+    #: left a CPU cost behind. Every new key at the ceiling swept all
+    #: 20 000 entries looking for expired ones, with the lock held --
+    #: measured at 0.83 ms per new key, so an attacker rotating source
+    #: addresses bought roughly a thousand times their own cost. The
+    #: store is now an OrderedDict kept in least-recently-seen order, so
+    #: eviction pops the front and the sweep is gone: O(1) amortised.
     MAX_KEYS = 20000
 
     def __init__(self, max_events: int, window_seconds: int, clock=time.monotonic,
@@ -39,8 +78,9 @@ class RateLimiter:
         self.window_seconds = window_seconds
         self.max_keys = self.MAX_KEYS if max_keys is None else max_keys
         self._clock = clock
-        # Insertion-ordered, so the first key is the oldest.
-        self._events = {}
+        # Least-recently-seen first; `move_to_end` on every touch keeps
+        # it that way, and eviction pops the front.
+        self._events = OrderedDict()
         self._lock = threading.Lock()
 
     def _prune(self, key, now):
@@ -71,17 +111,11 @@ class RateLimiter:
             if len(events) >= self.max_events:
                 return False
             events.append(now)
-            if len(self._events) > self.max_keys:
-                # Drop expired entries first; evict the oldest only if
-                # that was not enough.
-                threshold = now - self.window_seconds
-                for stale in [
-                    key for key, seen in self._events.items()
-                    if not seen or seen[-1] <= threshold
-                ]:
-                    del self._events[stale]
-                while len(self._events) > self.max_keys:
-                    self._events.pop(next(iter(self._events)))
+            # Touched, so youngest: the front of the mapping is always
+            # the least recently seen key.
+            self._events.move_to_end(key)
+            while len(self._events) > self.max_keys:
+                self._events.popitem(last=False)
             return True
 
     def reset(self) -> None:

@@ -1,6 +1,43 @@
 Changelog
 =========
 
+2.0.14 (2026-08-22) — the limiter's identity and its cost (train 0014)
+-----------------------------------------------------------------------
+
+- **D-04 (medium, fixed)** The throttling key was the full client
+  address. An IPv6 subscriber is handed a **/64** — eighteen billion
+  billion addresses — so one machine could take a fresh source address
+  per request and the counter never rose. Keys now collapse to the /64
+  for IPv6; IPv4 keeps its full address, having no equivalent
+  allocation. The form and the API were also using two different key
+  functions, so alternating between them doubled the allowance; they
+  share one now, and a test asserts they are literally the same
+  function.
+- **D-03 (low, fixed)** Train 0004 bounded the limiter's memory and
+  left a CPU cost behind: every new key at the ceiling swept all 20 000
+  entries looking for expired ones, with the lock held — measured at
+  0.83 ms per new key, so an attacker rotating source addresses bought
+  roughly a thousand times their own cost. The store is now an
+  ``OrderedDict`` in least-recently-seen order: eviction pops the
+  front, the sweep is gone, and the cost is O(1) amortised. A test
+  fails if a new key at the ceiling costs more than 0.1 ms, and another
+  checks the key evicted is the idle one rather than the active one.
+- **D-05 (low, fixed)** ``PyYAML`` was in no lock, so the two checks
+  that actually PARSE ``docker-compose.yaml`` — the service, its
+  dockerfile, context and volume, and the loopback-only publishing —
+  used ``importorskip`` and skipped silently, on every machine and in
+  CI. Two gates that existed and never closed, in the same family as
+  the bandit job that failed unnoticed from train 0004. Locked, the
+  skips removed, and a test asserts the lock entry so they cannot go
+  quiet again.
+
+Also documented: after a patch whose ``git apply`` touched a
+``requirements*.lock``, the environment must be reinstalled before the
+suite is run. Train 0012 added ``idna`` and the delivery note said only
+"apply and test", which turns into a ``ModuleNotFoundError`` that kills
+pytest's collection before any test can report anything useful.
+
+
 2.0.13 (2026-08-22) — cross-site creation (train 0013)
 --------------------------------------------------------
 

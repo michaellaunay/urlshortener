@@ -149,6 +149,12 @@ hosts malware. A public shortener will eventually serve a phishing
 link; plan a takedown procedure (`DELETE FROM links WHERE code = ?`),
 not a magic filter.
 
+**Throttling identity**: the full IPv4 address, but the **/64** for
+IPv6. A subscriber is handed an entire prefix, so counting per full
+address counts nothing — one machine simply uses a fresh source per
+request. The form and the API share one identity, or the limit would be
+doubled by alternating between them.
+
 **The built-in rate limit is a courtesy, not a defence.** It lives in
 the process: N workers allow N times the advertised rate, and a restart
 forgets everything. It stops a stuck script. The real limit is in the

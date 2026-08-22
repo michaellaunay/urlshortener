@@ -33,6 +33,7 @@ from .constants_and_globals import (
     _,
 )
 from .services import CodeExhausted, count_links, create_link, find_by_code, record_hit
+from .throttle import client_identity
 from .urlvalidation import InvalidURL, to_wire_url
 
 log = logging.getLogger(__name__)
@@ -242,8 +243,13 @@ def body_too_large(request) -> bool:
 
 
 def _client_key(request) -> str:
-    """Throttling key. `client_addr` honours the trusted-proxy config."""
-    return request.client_addr or "unknown"
+    """Throttling key. `client_addr` honours the trusted-proxy config.
+
+    Collapsed to a /64 for IPv6 (see `throttle.client_identity`): one
+    subscriber owns the whole prefix, so counting per full address
+    counts nothing.
+    """
+    return client_identity(request.client_addr)
 
 
 @view_config(route_name="home", request_method="GET", renderer="templates/home.pt")

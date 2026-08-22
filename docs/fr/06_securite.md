@@ -155,6 +155,12 @@ cible héberge un logiciel malveillant. Un raccourcisseur public finira
 par servir des liens d'hameçonnage ; prévoir une procédure de retrait
 (`DELETE FROM links WHERE code = ?`), pas un filtre magique.
 
+**Identité de limitation** : l'adresse IPv4 complète, mais le **/64**
+en IPv6. Un abonné reçoit un préfixe entier, donc compter par adresse
+complète ne compte rien : une machine change de source à chaque
+requête. Le formulaire et l'API partagent la même identité, sinon la
+limite serait doublée en alternant les deux.
+
 **La limitation de débit intégrée est une courtoisie, pas une
 défense.** Elle vit dans le processus : N workers autorisent N fois le
 débit annoncé, et un redémarrage oublie tout. Elle arrête un script

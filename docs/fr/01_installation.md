@@ -28,6 +28,25 @@ seulement trois : les gabarits sont rechargés à chaud, les journaux sont
 en DEBUG, et le refus des cibles privées est **désactivé** pour pouvoir
 raccourcir `http://localhost:8080/` pendant un développement.
 
+### Après un correctif qui touche aux verrous
+
+Un patch peut **ajouter une dépendance**. Les verrous changent alors, et
+un environnement peuplé avant le patch ne l'a pas. Le symptôme est un
+`ModuleNotFoundError` qui tue la collecte entière de pytest, bien avant
+que le moindre test ne s'exécute.
+
+Le réflexe, après tout patch dont le `git apply` a touché un
+`requirements*.lock` :
+
+```bash
+pip install --require-hashes -r requirements-test.lock
+python -m pytest -q
+```
+
+Un test vérifie qu'une dépendance nouvelle est bien déclarée **et**
+verrouillée ; aucun test ne peut vérifier ce qui est installé dans ton
+venv.
+
 ## Lancer les tests
 
 ```bash
@@ -35,7 +54,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-462 tests, 91 % de couverture. Les trois commandes exactes de la CI
+480 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash

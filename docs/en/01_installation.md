@@ -27,6 +27,24 @@ three: templates reload, logging is at DEBUG, and the private-target
 guard is **off** so that `http://localhost:8080/` can be shortened
 while developing.
 
+### After a patch that touches the locks
+
+A patch can **add a dependency**. The locks then change, and an
+environment populated before the patch does not have it. The symptom is
+a `ModuleNotFoundError` that kills pytest's whole collection, long
+before any test runs.
+
+The reflex, after any patch whose `git apply` touched a
+`requirements*.lock`:
+
+```bash
+pip install --require-hashes -r requirements-test.lock
+python -m pytest -q
+```
+
+A test checks that a new dependency is declared **and** locked; no test
+can check what is installed in your virtualenv.
+
 ## Running the tests
 
 ```bash
@@ -34,7 +52,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-462 tests, 91% coverage. The three exact quality-CI commands — run
+480 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash

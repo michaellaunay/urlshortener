@@ -7,7 +7,6 @@ happened on a sibling project. They are cheap; the incidents were not.
 import os
 import re
 
-import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -104,8 +103,22 @@ def test_the_compose_file_has_no_duplicate_keys():
         stack.append(key)
 
 
+def test_pyyaml_is_locked_so_the_next_two_checks_actually_run():
+    """They used `importorskip` and PyYAML was in no lock, so they
+    skipped on every machine and in CI — two gates that existed and
+    never closed (external audit, second pass, D-05)."""
+    import re
+
+    import yaml  # noqa: F401
+
+    for lock in ("requirements-test.lock",):
+        with open(os.path.join(ROOT, lock), encoding="utf-8") as handle:
+            assert re.search(r"^pyyaml==", handle.read(), re.MULTILINE | re.IGNORECASE)
+
+
 def test_the_compose_file_parses_and_declares_the_service():
-    yaml = pytest.importorskip("yaml")
+    import yaml
+
     document = yaml.safe_load(_read(COMPOSE))
     service = document["services"]["urlshortener"]
     assert service["build"]["dockerfile"] == "docker/DockerfileUrlshortener"
@@ -115,7 +128,8 @@ def test_the_compose_file_parses_and_declares_the_service():
 
 
 def test_the_service_is_published_on_loopback_only():
-    yaml = pytest.importorskip("yaml")
+    import yaml
+
     document = yaml.safe_load(_read(COMPOSE))
     for published in document["services"]["urlshortener"]["ports"]:
         assert str(published).startswith("127.0.0.1:"), (
