@@ -1,6 +1,27 @@
 Changelog
 =========
 
+2.0.17 (2026-08-22) — the bare-metal upgrade path opens its transaction (train 0017)
+----------------------------------------------------------------------
+
+The README's own quick start crashed on a fresh install:
+``python -m urlshortener.upgrades development.ini`` bootstraps the full
+application, which wires pyramid_tm's EXPLICIT manager — and outside a
+request nothing had begun a transaction, so the first session read
+raised ``transaction.interfaces.NoTransaction``. The container
+entrypoint runs the very same command, so the Smoke workflow hit it
+too.
+
+- ``upgrades.main`` now drives the explicit manager itself: begin,
+  commit-and-begin after each step (the resume-on-failure property is
+  kept), final commit for the last segment.
+- The CLI path gains its own characterisation
+  (``tests/test_upgrades_cli.py``): a real ini, a real bootstrap, run
+  twice for idempotence — 486 tests.
+- ``deploy/systemd/urlshortener.service`` ships the hardened unit for
+  bare-metal deployments (dedicated no-shell account,
+  ``/srv/urlshortener/{app,var,etc}``, upgrades as ``ExecStartPre``).
+
 2.0.16 (2026-08-22) — the step that was missing twice (train 0016)
 --------------------------------------------------------------------
 

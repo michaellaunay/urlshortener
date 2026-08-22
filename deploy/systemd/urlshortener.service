@@ -1,0 +1,22 @@
+[Unit]
+Description=urlshortener (Pyramid successor to the 2016 service)
+After=network.target
+
+[Service]
+Type=simple
+User=urlshortener
+Group=urlshortener
+WorkingDirectory=/srv/urlshortener
+ExecStartPre=/srv/urlshortener/app/.venv/bin/python -m urlshortener.upgrades /srv/urlshortener/etc/production.ini
+ExecStart=/srv/urlshortener/app/.venv/bin/pserve /srv/urlshortener/etc/production.ini
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/urlshortener/var
+
+[Install]
+WantedBy=multi-user.target

@@ -92,10 +92,25 @@ def main(argv=None) -> int:
         create_schema(env["registry"]["dbengine"])
         request = env["request"]
         dbsession = request.dbsession
-        version = run_pending_upgrades(
-            dbsession, commit_each=request.tm.commit if hasattr(request, "tm") else None
-        )
-        request.tm.commit()
+        # The app runs under pyramid_tm's EXPLICIT manager (see
+        # models.includeme): outside a request, nothing has begun a
+        # transaction yet, and the first session read would raise
+        # transaction.interfaces.NoTransaction. The CLI therefore
+        # drives the manager itself: begin, commit-and-begin after
+        # each step (keeping the resume-on-failure property), final
+        # commit for the last segment.
+        manager = getattr(request, "tm", None)
+        if manager is not None:
+            manager.begin()
+
+            def commit_each():
+                manager.commit()
+                manager.begin()
+        else:  # pragma: no cover - no transaction manager wired
+            commit_each = None
+        version = run_pending_upgrades(dbsession, commit_each=commit_each)
+        if manager is not None:
+            manager.commit()
         print("schema version: %d" % version)
     finally:
         env["closer"]()
