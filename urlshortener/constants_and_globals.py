@@ -139,7 +139,24 @@ class AppSettings:
     #: URL including that prefix.
     base_url: str = "http://localhost:5123/"
     #: Length of a freshly generated code.
-    code_length: int = 7
+    #:
+    #: Raised from 7 to 9 on 2026-08-22, after the external audit
+    #: observed that a short code is treated as a secret by whoever
+    #: pastes it, whatever the service promises. The number that
+    #: matters is not the collision rate -- the retry loop absorbs
+    #: those -- but the hit rate of a blind probe, which is
+    #: `stored_links / 62**length`:
+    #:
+    #:     length 7, one million links: one hit per ~3.5 million probes
+    #:     length 9, one million links: one hit per ~13 BILLION probes
+    #:
+    #: The first is within reach of a patient scraper; the second is
+    #: not. The cost is two characters. YouTube uses eleven.
+    #:
+    #: Existing shorter codes keep working: length applies to codes
+    #: being MINTED, and every legal code is resolvable whatever its
+    #: length -- the 2016 corpus starts at one character.
+    code_length: int = 9
     #: How many times a collision is retried before giving up.
     code_max_attempts: int = 8
     #: Longest accepted target URL.

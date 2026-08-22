@@ -1,6 +1,32 @@
 Changelog
 =========
 
+2.0.7 (2026-08-22) — nine-character codes (train 0007)
+-------------------------------------------------------
+
+- **C-14 (low, changed)** Freshly minted codes go from seven to nine
+  characters: 62**9, about 1.4e16, or 53.6 bits. External audit
+  observation, and a maintainer decision — a short code is treated as a
+  secret by whoever pastes it, whatever the service promises.
+
+  The figure that justifies it is the hit rate of a blind probe,
+  ``stored / 62**length``, not the collision rate, which the retry loop
+  absorbs. At seven characters with a million links stored that was one
+  hit per 3.5 million probes, within reach of a patient scraper; at
+  nine it is one per 13 billion. The cost is two characters. YouTube
+  uses eleven, and nobody finds those long.
+
+  **Nothing already handed out changes.** Length governs codes being
+  MINTED; resolution accepts any legal code whatever its size, and the
+  2016 corpus starts at one character. Short and long codes coexist in
+  one table, which is what the import has relied on since 2.0.0.
+
+  A ratchet test asserts ``code_length >= 9`` rather than equality, so
+  raising it later passes and lowering it fails, and further tests
+  check that the shipped .ini files and the compose default agree with
+  the code.
+
+
 2.0.6 (2026-08-22) — the legacy import (external audit, train 0006)
 --------------------------------------------------------------------
 

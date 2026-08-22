@@ -15,7 +15,7 @@ from .constants_and_globals import AVAILABLE_LANGUAGES, AppSettings, DOMAIN
 from .locale_negotiation import locale_negotiator
 from .throttle import RateLimiter
 
-__version__ = "2.0.6"
+__version__ = "2.0.7"
 
 log = logging.getLogger(__name__)
 
