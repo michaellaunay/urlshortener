@@ -1,6 +1,43 @@
 Changelog
 =========
 
+2.0.4 (2026-08-22) — deployment (external audit, train 0004)
+-------------------------------------------------------------
+
+- **C-07 (high in effect, fixed) — the compose stack served nothing.**
+  ``production.ini`` binds ``localhost:5123``, correct on bare metal and
+  unreachable in a container: Docker forwards the published port to the
+  container's interface, not to the loopback of its namespace.
+  ``URLSHORTENER_LISTEN`` existed in ``.env.example``, in the entrypoint
+  and in the override helper — and was passed in by nothing. Every
+  connection was refused. Now forwarded, and locked by a test that
+  checks every declared override against what compose actually passes.
+- **C-07 (medium, fixed) — one address for every visitor.** Inside a
+  container ``trusted_proxy = 127.0.0.1`` is not useless but wrong:
+  nginx arrives through the Docker bridge, waitress decides the peer is
+  not the trusted proxy and ignores ``X-Forwarded-For``, so
+  ``client_addr`` is the bridge for everyone and the creation limiter
+  becomes one global budget a single visitor can exhaust. The
+  entrypoint now reads the default gateway from ``/proc/net/route`` and
+  substitutes it, but ONLY when the file still carries the bare-metal
+  default; an operator's own value is never overwritten and
+  ``URLSHORTENER_TRUSTED_PROXY=none`` trusts nothing.
+  ``URLSHORTENER_TRUSTED_PROXY_COUNT`` is forwarded too.
+- **C-06 (medium, fixed) — the nginx recipe was wrong twice.** A
+  ``location = /`` does not inherit ``proxy_set_header`` from a
+  neighbouring ``location /``, so the documented vhost produced exactly
+  the failure above; and ``limit_req`` covered ``/`` only, leaving
+  ``POST /api/v1/shorten`` — the new creation endpoint — outside the
+  limit. The headers now live in an included file, and the limit covers
+  every creation path. ``client_max_body_size 16k`` added.
+- **C-12 (low, fixed) — the backup.** ``umask 077`` and a 700
+  directory, set before anything is written; the dump holds every URL
+  ever stored. It no longer copies the database into a ``:memory:``
+  connection first, which under ``mem_limit: 512m`` was a time bomb
+  proportional to the data. Output is now a consistent SQLite file
+  rather than a SQL dump.
+
+
 2.0.3 (2026-08-22) — the language switcher (external audit, train 0003)
 -----------------------------------------------------------------------
 

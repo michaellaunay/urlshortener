@@ -71,30 +71,69 @@ après que la construction eut été déclarée verte.
 Le service est publié sur `127.0.0.1:5123` uniquement. Ce qui fait face
 au réseau, c'est le reverse proxy.
 
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:5123;
-    proxy_http_version 1.1;
-    proxy_set_header Host              $http_host;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_redirect off;
-}
+Les en-têtes de proxy vont dans un fichier **inclus par chaque
+emplacement**. Un `location = /` n'hérite pas des `proxy_set_header`
+d'un `location /` voisin : nginx choisit un seul emplacement, et les
+directives des autres n'existent pas pour lui. L'exemple précédent de
+cette documentation avait ce défaut, et sa conséquence était exactement
+la panne décrite plus haut — `client_addr` identique pour tous.
 
-# Limite réelle de débit : c'est ici qu'elle a sa place, pas dans le
-# processus applicatif (voir 06_securite.md).
+`/etc/nginx/urlshortener_proxy.conf` :
+
+```nginx
+proxy_pass         http://127.0.0.1:5123;
+proxy_http_version 1.1;
+proxy_set_header   Host              $http_host;
+proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+proxy_set_header   X-Forwarded-Proto $scheme;
+proxy_redirect     off;
+```
+
+Le vhost :
+
+```nginx
+# Le corps d'une requête de raccourcissement tient largement dans 16 Ko.
+client_max_body_size 16k;
+
 limit_req_zone $binary_remote_addr zone=shorten:10m rate=10r/m;
+
+# Les TROIS chemins qui créent un lien. Ne couvrir que `/` laisserait
+# l'API entière hors de la limite.
 location = / {
     limit_req zone=shorten burst=20 nodelay;
-    proxy_pass http://127.0.0.1:5123;
+    include /etc/nginx/urlshortener_proxy.conf;
+}
+location = /api/v1/shorten {
+    limit_req zone=shorten burst=20 nodelay;
+    include /etc/nginx/urlshortener_proxy.conf;
+}
+
+# Tout le reste : redirections et lecture. Jamais limité — c'est la
+# fonction du service.
+location / {
+    include /etc/nginx/urlshortener_proxy.conf;
 }
 ```
 
-Pour que `request.client_addr` soit le visiteur et non le proxy,
-`production.ini` porte déjà `trusted_proxy`, `trusted_proxy_headers` et
-`clear_untrusted_proxy_headers = true`. Sans ces trois lignes, la
-limitation compte toutes les requêtes sur la même adresse : celle du
-proxy.
+### L'adresse du visiteur, en conteneur
+
+`production.ini` porte `trusted_proxy = 127.0.0.1`, ce qui est juste sur
+bare metal et **faux en conteneur** : nginx tourne sur l'hôte et arrive
+par le pont Docker, donc waitress voit l'adresse de la passerelle,
+conclut que le pair n'est pas le proxy de confiance, et **ignore
+purement et simplement `X-Forwarded-For`**. `request.client_addr` devient
+alors la même adresse pour tout le monde — le pont — et le limiteur de
+créations, qui est indexé dessus, se transforme en un budget global
+qu'un seul visiteur peut épuiser pour tous.
+
+L'adresse de la passerelle n'est pas connue au moment où l'on écrit le
+compose. L'entrée en service la lit donc dans la table de routage du
+noyau au démarrage (`/proc/net/route`, route par défaut) et la
+substitue **uniquement** si le fichier porte encore le défaut bare
+metal. Une valeur écrite par l'exploitant n'est jamais écrasée, et
+`URLSHORTENER_TRUSTED_PROXY=none` ne fait confiance à aucun proxy. La
+ligne `[proxy] …` du journal de démarrage dit ce qui a été retenu et
+pourquoi.
 
 ## Sauvegardes
 
@@ -103,12 +142,18 @@ liens jamais distribués.
 
 ```bash
 ./docker/backup.sh urlshortener ./backups
-# restauration
-sqlite3 urlshortener.sqlite < backups/urlshortener-20260822T101500Z.sqlite
+# restauration : service arrêté, on remet le fichier en place
+sqlite3 backups/urlshortener-20260822T101500Z.sqlite \
+        'PRAGMA integrity_check; SELECT count(*) FROM links;'
 ```
 
 Le script passe par `sqlite3 .backup` et non par `cp` : copier un
 fichier en cours d'écriture donne un instantané peut-être incohérent.
+Il écrit sous `umask 077` dans un répertoire en 700 — la sauvegarde
+contient **toutes les URL jamais raccourcies** — et il ne recopie plus
+la base dans une connexion `:memory:` avant de la rendre, ce qui, sous
+`mem_limit: 512m`, était une bombe à retardement proportionnelle à la
+taille des données.
 Et une sauvegarde que personne n'a restaurée n'est pas une sauvegarde —
 la restauration se répète, hors incident.
 

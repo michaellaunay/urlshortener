@@ -48,6 +48,23 @@ services:
       URLSHORTENER_THROTTLE_WINDOW: ${URLSHORTENER_THROTTLE_WINDOW:-300}
       URLSHORTENER_CORS_ORIGINS: ${URLSHORTENER_CORS_ORIGINS:-}
 
+      # WITHOUT THIS LINE THE STACK SERVES NOTHING (external audit,
+      # C-07). `production.ini` says `listen = localhost:5123`, which is
+      # right on bare metal and wrong in a container: waitress then
+      # binds the loopback of the container's own network namespace,
+      # while Docker forwards the published port to the container's
+      # interface. Every connection was refused. The variable existed in
+      # .env.example and in the entrypoint; it was simply never passed
+      # in, so nothing carried it across.
+      URLSHORTENER_LISTEN: ${URLSHORTENER_LISTEN:-0.0.0.0:5123}
+
+      # Left empty on purpose: the entrypoint then substitutes the
+      # container's own default gateway, which is the address nginx
+      # arrives from. Set it to trust a different proxy, or to the
+      # literal `none` to trust no proxy at all.
+      URLSHORTENER_TRUSTED_PROXY: ${URLSHORTENER_TRUSTED_PROXY:-}
+      URLSHORTENER_TRUSTED_PROXY_COUNT: ${URLSHORTENER_TRUSTED_PROXY_COUNT:-1}
+
     # Published on the loopback interface only: the reverse proxy in
     # front (nginx, Apache) is what faces the network. Binding
     # 0.0.0.0:5123 would expose the service directly, which is exactly

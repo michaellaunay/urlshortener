@@ -70,30 +70,68 @@ long after the build had been declared green.
 The service is published on `127.0.0.1:5123` only. What faces the
 network is the reverse proxy.
 
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:5123;
-    proxy_http_version 1.1;
-    proxy_set_header Host              $http_host;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_redirect off;
-}
+The proxy headers go in a file **included by every location**. A
+`location = /` does not inherit the `proxy_set_header` directives of a
+neighbouring `location /`: nginx picks one location, and the others do
+not exist for it. The previous example in this documentation had that
+defect, and its consequence was exactly the failure described above —
+one `client_addr` for everybody.
 
-# The real rate limit belongs here, not in the application process
-# (see 06_security.md).
+`/etc/nginx/urlshortener_proxy.conf`:
+
+```nginx
+proxy_pass         http://127.0.0.1:5123;
+proxy_http_version 1.1;
+proxy_set_header   Host              $http_host;
+proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+proxy_set_header   X-Forwarded-Proto $scheme;
+proxy_redirect     off;
+```
+
+The vhost:
+
+```nginx
+# A shortening request fits in 16 KiB with room to spare.
+client_max_body_size 16k;
+
 limit_req_zone $binary_remote_addr zone=shorten:10m rate=10r/m;
+
+# The THREE paths that create a link. Covering only `/` would leave the
+# whole API outside the limit.
 location = / {
     limit_req zone=shorten burst=20 nodelay;
-    proxy_pass http://127.0.0.1:5123;
+    include /etc/nginx/urlshortener_proxy.conf;
+}
+location = /api/v1/shorten {
+    limit_req zone=shorten burst=20 nodelay;
+    include /etc/nginx/urlshortener_proxy.conf;
+}
+
+# Everything else: redirects and reads. Never limited — that is the
+# service's function.
+location / {
+    include /etc/nginx/urlshortener_proxy.conf;
 }
 ```
 
-So that `request.client_addr` is the visitor and not the proxy,
-`production.ini` already carries `trusted_proxy`,
-`trusted_proxy_headers` and `clear_untrusted_proxy_headers = true`.
-Without those three lines the limiter counts every request against one
-address: the proxy's.
+### The visitor's address, in a container
+
+`production.ini` carries `trusted_proxy = 127.0.0.1`, which is right on
+bare metal and **wrong in a container**: nginx runs on the host and
+arrives through the Docker bridge, so waitress sees the gateway
+address, concludes the peer is not the trusted proxy, and **ignores
+`X-Forwarded-For` entirely**. `request.client_addr` then becomes the
+same address for everyone — the bridge — and the creation limiter,
+which is keyed on it, turns into one global budget a single visitor can
+exhaust for all.
+
+The gateway address is not knowable when the compose file is written.
+The entrypoint therefore reads it from the kernel's routing table at
+start-up (`/proc/net/route`, the default route) and substitutes it
+**only** when the file still carries the bare-metal default. A value
+written by the operator is never overwritten, and
+`URLSHORTENER_TRUSTED_PROXY=none` trusts no proxy at all. The `[proxy]`
+line of the start-up log says what was chosen and why.
 
 ## Backups
 
@@ -102,13 +140,17 @@ ever handed out.
 
 ```bash
 ./docker/backup.sh urlshortener ./backups
-# restore
-sqlite3 urlshortener.sqlite < backups/urlshortener-20260822T101500Z.sqlite
+# restore: stop the service, put the file back in place
+sqlite3 backups/urlshortener-20260822T101500Z.sqlite \
+        'PRAGMA integrity_check; SELECT count(*) FROM links;'
 ```
 
 The script goes through `sqlite3 .backup` rather than `cp`: copying a
 file while it is being written yields a snapshot that may not be
-consistent. And a backup nobody has restored is not a backup — rehearse
+consistent. It writes under `umask 077` into a 700 directory — the
+backup holds **every URL ever shortened** — and it no longer copies the
+database into a `:memory:` connection before handing it over, which
+under `mem_limit: 512m` was a time bomb proportional to the data. And a backup nobody has restored is not a backup — rehearse
 the restore, outside an incident.
 
 ## Monitoring

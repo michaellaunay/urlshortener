@@ -16,15 +16,97 @@ the volume, so an operator can read exactly what the server was given.
 from __future__ import annotations
 
 import os
+import socket
+import struct
 import sys
 from configparser import RawConfigParser
 
 #: Environment variable -> (section, option).
+#:
+#: `tests/test_deployment_conventions.py` checks this mapping against
+#: what `docker/docker-compose.yaml` actually passes into the container:
+#: an override nobody forwards is a setting the operator believes in and
+#: that never arrives (external audit C-07).
 OVERRIDES = {
     "URLSHORTENER_LISTEN": ("server:main", "listen"),
     "URLSHORTENER_TRUSTED_PROXY": ("server:main", "trusted_proxy"),
+    "URLSHORTENER_TRUSTED_PROXY_COUNT": ("server:main", "trusted_proxy_count"),
     "SQLALCHEMY_URL": ("app:main", "sqlalchemy.url"),
 }
+
+#: The value of `trusted_proxy` that only makes sense on bare metal.
+BARE_METAL_TRUSTED_PROXY = "127.0.0.1"
+
+#: Written in `URLSHORTENER_TRUSTED_PROXY` to trust nothing at all.
+NO_PROXY = "none"
+
+
+def default_gateway(route_table="/proc/net/route"):
+    """Return the container's default gateway as a string, or None.
+
+    EXTERNAL AUDIT 2026-08-22, finding C-07 (second half). Inside a
+    container, `trusted_proxy = 127.0.0.1` is not merely useless, it is
+    WRONG: nginx runs on the host and reaches the service through the
+    Docker bridge, so waitress sees the gateway address, decides the
+    peer is not the trusted proxy, and ignores `X-Forwarded-For`
+    entirely. `request.client_addr` then becomes the SAME address for
+    every visitor -- the bridge -- and the creation limiter, which is
+    keyed on it, silently becomes one global budget that a single
+    visitor can exhaust for everyone.
+
+    The gateway address is not knowable when the compose file is
+    written, so it is read at start-up from the kernel's own routing
+    table: the default route is the one with destination 0.0.0.0, and
+    the gateway field is a little-endian hexadecimal address.
+    """
+    try:
+        with open(route_table, encoding="ascii") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+    for line in lines[1:]:
+        fields = line.split()
+        if len(fields) < 3 or fields[1] != "00000000":
+            continue
+        try:
+            packed = struct.pack("<L", int(fields[2], 16))
+        except (ValueError, struct.error):
+            continue
+        address = socket.inet_ntoa(packed)
+        if address == "0.0.0.0":
+            continue
+        return address
+    return None
+
+
+def resolve_trusted_proxy(parser, environ, route_table="/proc/net/route"):
+    """Decide what `trusted_proxy` should be, and say why.
+
+    Returns `(value_or_None, reason)`. An explicit environment value
+    always wins, `none` disables the trust entirely, and the gateway is
+    only substituted when the file still carries the bare-metal
+    default -- an operator who wrote a value keeps it.
+    """
+    requested = (environ.get("URLSHORTENER_TRUSTED_PROXY") or "").strip()
+    if requested.lower() == NO_PROXY:
+        return "", "URLSHORTENER_TRUSTED_PROXY=none — no proxy is trusted"
+    if requested:
+        return requested, "URLSHORTENER_TRUSTED_PROXY set explicitly"
+
+    current = ""
+    if parser.has_option("server:main", "trusted_proxy"):
+        current = parser.get("server:main", "trusted_proxy").strip()
+    if current and current != BARE_METAL_TRUSTED_PROXY:
+        return None, "trusted_proxy already set to %r in the file" % current
+
+    gateway = default_gateway(route_table)
+    if gateway is None or gateway == BARE_METAL_TRUSTED_PROXY:
+        return None, "no container gateway found — leaving %r" % (current or "unset")
+    return gateway, (
+        "container gateway %s substituted for the bare-metal default %s "
+        "(otherwise X-Forwarded-For is ignored and every visitor shares "
+        "one rate-limit budget)" % (gateway, BARE_METAL_TRUSTED_PROXY)
+    )
 
 
 def apply_overrides(parser, environ):
@@ -70,6 +152,13 @@ def main(argv=None) -> int:
                 parser.set(section, option, value.replace("%(here)s", here))
 
     applied = apply_overrides(parser, os.environ)
+
+    proxy_value, proxy_reason = resolve_trusted_proxy(parser, os.environ)
+    if proxy_value is not None:
+        if not parser.has_section("server:main"):
+            parser.add_section("server:main")
+        parser.set("server:main", "trusted_proxy", proxy_value)
+    print("[proxy] %s" % proxy_reason)
 
     os.makedirs(os.path.dirname(os.path.abspath(destination)), exist_ok=True)
     # AUDIT 2026-08-22, finding S-07: this file lands on the DATA
