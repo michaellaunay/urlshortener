@@ -1,0 +1,288 @@
+/* urlshortener — visual system
+ *
+ * Register: transport signage. A shortener is a routing device, and the
+ * code it hands back is the whole product, so the code is the only
+ * element allowed to be loud: oversized monospace in signal blue, with
+ * the base URL kept deliberately grey beside it. Everything else is
+ * quiet, ruled and left-aligned. No web fonts and no CDN — the 2016
+ * page pulled Bootstrap and Font Awesome from maxcdn on every view,
+ * which told a third party who read which link.
+ */
+
+:root {
+  --ink: #14161a;
+  --ink-soft: #5b6472;
+  --paper: #ffffff;
+  --field: #eff1f5;
+  --rule: #d7dbe2;
+  --signal: #1f4fd8;
+  --signal-soft: #e5ecfd;
+  --alert: #b3261e;
+
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --gutter: 1.5rem;
+  --measure: 44rem;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+.skip:focus {
+  left: var(--gutter);
+  top: 0.5rem;
+  z-index: 10;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.5rem 0.75rem;
+}
+
+/* ── Masthead ─────────────────────────────────────────────────────── */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.75rem var(--gutter) 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wordmark-mark {
+  font-family: var(--mono);
+  color: var(--signal);
+  margin-right: 0.35rem;
+}
+
+.languages {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.lang {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+}
+.lang:hover { color: var(--ink); border-bottom-color: var(--rule); }
+.lang.is-current { color: var(--ink); border-bottom-color: var(--signal); }
+
+/* ── Sheet ────────────────────────────────────────────────────────── */
+
+.sheet {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 2.5rem var(--gutter) 3rem;
+}
+
+.lede {
+  margin: 0 0 2rem;
+  font-size: clamp(1.5rem, 1.15rem + 1.6vw, 2.125rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  max-width: 22ch;
+}
+
+/* ── Form ─────────────────────────────────────────────────────────── */
+
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.field {
+  flex: 1 1 18rem;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.field:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+  background: var(--paper);
+}
+
+.go {
+  flex: 0 0 auto;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem 1.4rem;
+  color: var(--paper);
+  background: var(--signal);
+  border: 1px solid var(--signal);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.go:hover { background: #1a44bb; }
+.go:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.field-help {
+  margin: 0.55rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  max-width: 52ch;
+}
+
+/* ── Notices ──────────────────────────────────────────────────────── */
+
+.notice {
+  margin: 1.5rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--rule);
+  background: var(--field);
+  font-size: 0.9375rem;
+}
+.notice-error {
+  border-left-color: var(--alert);
+  color: var(--alert);
+  background: #fdf1f0;
+}
+
+/* ── Result: the one loud element ─────────────────────────────────── */
+
+.result {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 3px solid var(--signal);
+}
+
+.result-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.result-url {
+  margin: 0;
+  font-family: var(--mono);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.result-url a { text-decoration: none; }
+
+.result-base {
+  font-size: clamp(0.875rem, 0.8rem + 0.4vw, 1.0625rem);
+  color: var(--ink-soft);
+}
+
+.result-code {
+  font-size: clamp(1.75rem, 1.2rem + 2.6vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--signal);
+  background: linear-gradient(var(--signal-soft), var(--signal-soft)) no-repeat;
+  background-size: 100% 0.35em;
+  background-position: 0 88%;
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.copy {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  color: var(--signal);
+  background: var(--paper);
+  border: 1px solid var(--signal);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.copy:hover { background: var(--signal-soft); }
+.copy[data-state="done"] { color: var(--ink-soft); border-color: var(--rule); }
+
+.result-target {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.result-target code { font-family: var(--mono); }
+
+.back {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+/* ── Colophon ─────────────────────────────────────────────────────── */
+
+.colophon {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1rem var(--gutter) 2.5rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.colophon p { margin: 0; }
+.colophon a { color: var(--ink-soft); }
+
+.count-number {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

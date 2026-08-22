@@ -1,0 +1,70 @@
+Changelog
+=========
+
+2.0.0 (2026-08-22)
+------------------
+
+Complete rewrite of the 2016 Flask service (ecreall/urlshortener). The
+public contract is preserved; everything under it changed.
+
+Compatibility kept (locked by tests/test_legacy_compat.py)
+
+- ``GET /?url=<target>`` still answers the same JSON object
+  ``{"short_url", "code": "SUCCESS", "original_url"}``.
+- ``POST /`` with a form field ``url`` still answers the HTML page.
+- ``GET /<code>`` still answers 302 to the target.
+- A submitted address with no scheme is still completed with ``http://``.
+- The short-code alphabet is unchanged (digits, lowercase, uppercase),
+  so every code minted since 2016 remains a legal code.
+
+Compatibility broken, deliberately
+
+- An unknown code now answers **404** instead of 200 with an error
+  page. No monitor could previously tell a dead link from a live one.
+- A refused URL answers **400** (and 503 / 429 where they apply)
+  instead of 200 with ``code: ERROR``. The body shape is unchanged.
+- ``Access-Control-Allow-Origin: *`` is no longer sent to everyone.
+  Set ``urlshortener.cors_origins`` to restore it (``*`` is still
+  expressible).
+- The public base of the short links is configuration
+  (``urlshortener.base_url``), not the hard-coded ``http://6li.eu/``.
+
+Security
+
+- SQL statements are parameterised. The 2016 code built INSERT and
+  SELECT with ``.format()`` on user input.
+- Target URLs are validated: scheme allowlist (http/https), no
+  credentials in the authority, no control characters, hostname syntax
+  checked, literal private/loopback/link-local addresses refused by
+  default. ``javascript:``, ``data:`` and ``file:`` were accepted and
+  redirected to before.
+- Short codes are drawn from ``secrets`` instead of a sequential
+  counter, so one code no longer discloses the next.
+- Security headers on every response: CSP with ``frame-ancestors
+  'none'``, ``X-Content-Type-Options``, ``X-Frame-Options``,
+  ``Referrer-Policy: no-referrer`` on the redirect.
+- No third-party asset: the 2016 page pulled Bootstrap and Font Awesome
+  from maxcdn on every view.
+- No IP address is stored. Rate limiting uses an in-memory window.
+
+Added
+
+- JSON API v1: ``POST /api/v1/shorten``, ``GET /api/v1/links/{code}``.
+- ``GET /healthz`` with a real database round-trip, used by the
+  container health check.
+- Interface in English, French, German and Spanish, with a single
+  locale registry (``SUPPORTED_LOCALES``) and the remaining EU official
+  languages declared but not yet offered.
+- Hit counting per link.
+- ``tools/import_legacy``: imports the 2016 ``var/urls.db`` verbatim.
+- Schema versioning with contiguous upgrade steps.
+- Multi-stage Docker image (digest-pinned base, hash-checked lock,
+  non-root, health check) and a compose file.
+- 170 tests.
+
+Changed
+
+- Pyramid 2.1 + SQLAlchemy 2 + waitress, Python >= 3.11. The 2016
+  requirements (Flask 0.10.1, Flask-Cors 2.1.2) no longer install, and
+  ``flask.ext.cors`` has not been importable since Flask 0.11.
+- Three hash-pinned dependency locks (runtime / test / quality).

@@ -1,0 +1,116 @@
+# Multi-stage build, base image pinned by DIGEST rather than by tag.
+#
+# The digest below is the one already verified and in production in the
+# AlirPunkto stack (ubuntu:24.04) -- reusing it keeps both services on
+# an identical, known base instead of introducing a second one.
+#
+# Design notes:
+# - the application is installed as a WHEEL, so the runtime stage needs
+#   no source tree at all;
+# - the runtime lock is installed in hash-checking mode
+#   (--require-hashes): a tampered or substituted package fails the
+#   build instead of shipping;
+# - --only-binary=:all: with ONE named exception: pyramid-chameleon is
+#   sdist-only on PyPI but pure python (it builds a py3-none-any wheel),
+#   so no compiler is needed in any stage. A future sdist outside this
+#   list fails the build explicitly rather than silently pulling a
+#   toolchain in;
+# - the runtime stage copies an explicit allowlist, never `COPY .`.
+
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV APP_HOME=/home/urlshortener/app
+ENV VENV_DIR=/home/urlshortener/venv
+
+# Opt-in strict reproducibility: when set (e.g. 20260822T000000Z) every
+# apt operation resolves against snapshot.ubuntu.com at that instant.
+ARG UBUNTU_SNAPSHOT=""
+RUN if [ -n "${UBUNTU_SNAPSHOT}" ]; then \
+        sed -i "s|^Types:|Snapshot: ${UBUNTU_SNAPSHOT}\nTypes:|" /etc/apt/sources.list.d/ubuntu.sources \
+        && grep -q "^Snapshot: ${UBUNTU_SNAPSHOT}$" /etc/apt/sources.list.d/ubuntu.sources; \
+    fi
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    python3 \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv "${VENV_DIR}"
+
+WORKDIR ${APP_HOME}
+
+# Lock first, sources after: the dependency layer is rebuilt only when
+# the lock changes.
+COPY requirements.lock ${APP_HOME}/requirements.lock
+RUN "${VENV_DIR}/bin/pip" install --no-cache-dir --require-hashes \
+    --only-binary=:all: \
+    --no-binary=pyramid-chameleon \
+    -r requirements.lock
+
+COPY . ${APP_HOME}
+RUN "${VENV_DIR}/bin/pip" install --no-cache-dir --no-build-isolation --no-deps .
+
+# -- Runtime stage --------------------------------------------------------
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV APP_HOME=/home/urlshortener/app
+ENV VENV_DIR=/home/urlshortener/venv
+
+ARG BUILD_WITH_DEBUG=0
+ENV BUILD_WITH_DEBUG=${BUILD_WITH_DEBUG}
+
+ARG UBUNTU_SNAPSHOT=""
+RUN if [ -n "${UBUNTU_SNAPSHOT}" ]; then \
+        sed -i "s|^Types:|Snapshot: ${UBUNTU_SNAPSHOT}\nTypes:|" /etc/apt/sources.list.d/ubuntu.sources \
+        && grep -q "^Snapshot: ${UBUNTU_SNAPSHOT}$" /etc/apt/sources.list.d/ubuntu.sources; \
+    fi
+
+# curl is here for the HEALTHCHECK only; it is not a debugging tool.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    python3 \
+    curl \
+    && if [ "$BUILD_WITH_DEBUG" = "1" ]; then \
+        apt-get install -y --no-install-recommends vim dnsutils iputils-ping net-tools; \
+    fi \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -g 1002 urlshortener \
+    && useradd -m -u 1002 -g 1002 -s /bin/bash urlshortener
+
+COPY --from=builder --chown=1002:1002 ${VENV_DIR} ${VENV_DIR}
+
+WORKDIR ${APP_HOME}
+
+# Explicit allowlist: the application itself lives in the venv as an
+# installed wheel, so only the deployment configuration is copied.
+COPY --chown=1002:1002 production.ini .env.example ${APP_HOME}/
+COPY --chown=1002:1002 docker/apply_server_overrides.py ${APP_HOME}/docker/apply_server_overrides.py
+COPY docker/start_urlshortener.sh /usr/local/bin/start_urlshortener.sh
+
+RUN chmod +x /usr/local/bin/start_urlshortener.sh \
+    && mkdir -p ${APP_HOME}/var \
+    && chown -R urlshortener:urlshortener ${APP_HOME}
+
+# The SQLite file and nothing else. Losing this volume loses every
+# short link ever handed out -- back it up (see docker/backup.sh).
+VOLUME ["/home/urlshortener/app/var"]
+
+USER urlshortener
+
+EXPOSE 5123
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:5123/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/start_urlshortener.sh"]
+CMD ["production.ini"]

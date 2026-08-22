@@ -1,0 +1,66 @@
+# =============================================================================
+# docker/docker-compose.yaml — urlshortener
+#
+# Run ALL commands from the REPOSITORY ROOT:
+#
+#   docker compose --env-file docker/.env -f docker/docker-compose.yaml up -d
+#   docker compose -f docker/docker-compose.yaml logs -f
+#   docker compose -f docker/docker-compose.yaml down
+#
+# Run ./docker/init.sh once before the first `up`.
+#
+# Path resolution note: compose resolves `context:` and bind-mount paths
+# relative to THIS FILE (docker/), so `..` is the repository root.
+# =============================================================================
+
+services:
+
+  urlshortener:
+    build:
+      # The build needs the whole source tree, so the context is the
+      # repository root and the Dockerfile path is spelled out.
+      context: ..
+      dockerfile: docker/DockerfileUrlshortener
+      args:
+        BUILD_WITH_DEBUG: ${BUILD_WITH_DEBUG:-0}
+        UBUNTU_SNAPSHOT: ${URLSHORTENER_UBUNTU_SNAPSHOT:-}
+    image: urlshortener
+    container_name: urlshortener
+    restart: unless-stopped
+
+    mem_limit: 512m
+    cpus: 1.0
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    environment:
+      # The public prefix of the short links, trailing slash included.
+      URLSHORTENER_BASE_URL: ${URLSHORTENER_BASE_URL:-http://localhost:5123/}
+      SQLALCHEMY_URL: ${SQLALCHEMY_URL:-sqlite:////home/urlshortener/app/var/urlshortener.sqlite}
+      URLSHORTENER_CODE_LENGTH: ${URLSHORTENER_CODE_LENGTH:-7}
+      URLSHORTENER_BLOCK_PRIVATE_TARGETS: ${URLSHORTENER_BLOCK_PRIVATE_TARGETS:-true}
+      URLSHORTENER_BLOCKED_HOSTS: ${URLSHORTENER_BLOCKED_HOSTS:-}
+      URLSHORTENER_THROTTLE_MAX: ${URLSHORTENER_THROTTLE_MAX:-30}
+      URLSHORTENER_THROTTLE_WINDOW: ${URLSHORTENER_THROTTLE_WINDOW:-300}
+      URLSHORTENER_CORS_ORIGINS: ${URLSHORTENER_CORS_ORIGINS:-}
+
+    # Published on the loopback interface only: the reverse proxy in
+    # front (nginx, Apache) is what faces the network. Binding
+    # 0.0.0.0:5123 would expose the service directly, which is exactly
+    # what the legacy deployment avoided.
+    ports:
+      - "127.0.0.1:5123:5123"
+
+    volumes:
+      # The SQLite file. This is the whole state of the service.
+      - urlshortener-var:/home/urlshortener/app/var
+
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  urlshortener-var:

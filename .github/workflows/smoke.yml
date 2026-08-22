@@ -1,0 +1,56 @@
+name: Smoke
+
+# Builds the image and drives the real container end to end. A green
+# unit suite says the code is right; this says the DEPLOYMENT is.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the compose file with a strict parser
+        run: docker compose -f docker/docker-compose.yaml config --quiet
+
+      - name: Build the image
+        run: docker compose -f docker/docker-compose.yaml build
+
+      - name: Start the stack
+        env:
+          URLSHORTENER_BASE_URL: http://127.0.0.1:5123/
+          URLSHORTENER_LISTEN: 0.0.0.0:5123
+          URLSHORTENER_BLOCK_PRIVATE_TARGETS: "false"
+        run: docker compose -f docker/docker-compose.yaml up -d --wait
+
+      - name: The service is healthy
+        run: curl -fsS http://127.0.0.1:5123/healthz | tee /dev/stderr | grep -q '"status": "ok"'
+
+      - name: A link can be created and then resolves
+        run: |
+          set -euo pipefail
+          SHORT=$(curl -fsS 'http://127.0.0.1:5123/?url=https://example.org/smoke' \
+                  | python3 -c 'import json,sys; print(json.load(sys.stdin)["short_url"])')
+          echo "created ${SHORT}"
+          CODE="${SHORT##*/}"
+          LOCATION=$(curl -s -o /dev/null -w '%{redirect_url}' "http://127.0.0.1:5123/${CODE}")
+          test "${LOCATION}" = "https://example.org/smoke"
+
+      - name: An unknown code answers 404
+        run: |
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5123/nosuch1)
+          test "${STATUS}" = "404"
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker/docker-compose.yaml logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/docker-compose.yaml down -v

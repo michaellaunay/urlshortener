@@ -1,0 +1,106 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2026 Logikascium — AGPL-3.0-or-later
+"""Schema version stamp and upgrade steps.
+
+Same contract as AlirPunkto: every change to a persisted structure ADDS
+a numbered step, steps are contiguous, each stamps itself, and running
+them twice is a no-op. Version 1 is the schema created by this release;
+it has no data migration to perform because there is nothing before it
+in THIS database -- the 2016 data arrives through
+`tools/import_legacy.py`, which is a different operation with a
+different failure mode.
+
+Run against a stopped application:
+
+    python -m urlshortener.upgrades production.ini
+"""
+from __future__ import annotations
+
+import sys
+
+from pyramid.paster import bootstrap, setup_logging
+from sqlalchemy import select
+
+from .models import Base, SchemaVersion, utcnow
+
+#: Bump when a step is added. Must equal the highest step number.
+SCHEMA_VERSION = 1
+
+
+def _step_1(dbsession) -> None:
+    """Initial schema. Tables are created by `create_all`; this stamps."""
+    return None
+
+
+#: Step number -> callable. Contiguity is asserted at import time, so a
+#: missing number is a failure here and not a silent skip in production.
+UPGRADE_STEPS = {
+    1: _step_1,
+}
+
+assert sorted(UPGRADE_STEPS) == list(range(1, SCHEMA_VERSION + 1)), (
+    "UPGRADE_STEPS must be contiguous from 1 to SCHEMA_VERSION"
+)
+
+
+def get_schema_version(dbsession) -> int:
+    """Current stamp; 0 when the table is empty or absent."""
+    row = dbsession.execute(select(SchemaVersion).limit(1)).scalar_one_or_none()
+    return 0 if row is None else int(row.version)
+
+
+def set_schema_version(dbsession, version: int) -> None:
+    row = dbsession.execute(select(SchemaVersion).limit(1)).scalar_one_or_none()
+    if row is None:
+        dbsession.add(SchemaVersion(id=1, version=version, updated_at=utcnow()))
+    else:
+        row.version = version
+        row.updated_at = utcnow()
+    dbsession.flush()
+
+
+def create_schema(engine) -> None:
+    """Create any missing table. Existing tables are left untouched."""
+    Base.metadata.create_all(engine)
+
+
+def run_pending_upgrades(dbsession, commit_each=None) -> int:
+    """Run every step above the current stamp. Returns the new version.
+
+    Each step stamps itself, so a failure halfway leaves the stamp at
+    the last step that actually succeeded -- a rerun resumes there
+    instead of replaying what already worked.
+    """
+    current = get_schema_version(dbsession)
+    for version in range(current + 1, SCHEMA_VERSION + 1):
+        UPGRADE_STEPS[version](dbsession)
+        set_schema_version(dbsession, version)
+        if commit_each is not None:
+            commit_each()
+    return get_schema_version(dbsession)
+
+
+def main(argv=None) -> int:
+    argv = sys.argv if argv is None else argv
+    if len(argv) < 2:
+        print("usage: python -m urlshortener.upgrades <config_uri>", file=sys.stderr)
+        return 2
+    config_uri = argv[1]
+    setup_logging(config_uri)
+    env = bootstrap(config_uri)
+    try:
+        create_schema(env["registry"]["dbengine"])
+        request = env["request"]
+        dbsession = request.dbsession
+        version = run_pending_upgrades(
+            dbsession, commit_each=request.tm.commit if hasattr(request, "tm") else None
+        )
+        request.tm.commit()
+        print("schema version: %d" % version)
+    finally:
+        env["closer"]()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,48 @@
+<div metal:use-macro="load: layout.pt"
+     xmlns:tal="http://xml.zope.org/namespaces/tal"
+     xmlns:metal="http://xml.zope.org/namespaces/metal"
+     xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+     i18n:domain="urlshortener">
+  <div metal:fill-slot="content">
+
+    <h1 class="lede" i18n:translate="home_heading">Turn a long address into a short one.</h1>
+
+    <form class="shorten" method="post" action="${request.route_path('home')}">
+      <label class="field-label" for="url" i18n:translate="home_field_label">Web address</label>
+      <div class="field-row">
+        <input class="field" type="url" id="url" name="url" required="required"
+               autocomplete="off" spellcheck="false"
+               tal:attributes="value submitted_url;
+                               placeholder python: 'https://'"
+               />
+        <button class="go" type="submit" i18n:translate="home_submit">Shorten</button>
+      </div>
+      <p class="field-help" i18n:translate="home_field_help">
+        Only http:// and https:// addresses. The same address always gives the same short link.
+      </p>
+    </form>
+
+    <p class="notice notice-error" role="alert" tal:condition="error">${error}</p>
+
+    <section class="result" tal:condition="short_url">
+      <p class="result-label">
+        <span tal:condition="not already_existed" i18n:translate="result_created">Your short link</span>
+        <span tal:condition="already_existed" i18n:translate="result_existing">This address already had a short link</span>
+      </p>
+      <p class="result-url">
+        <a href="${short_url}" rel="noreferrer"><span class="result-base">${short_base}</span><span class="result-code">${short_code}</span></a>
+      </p>
+      <div class="result-actions">
+        <button class="copy" type="button" data-copy="${short_url}"
+                data-copied-label="Copied"
+                i18n:attributes="data-copied-label result_copied"
+                i18n:translate="result_copy">Copy</button>
+        <span class="result-target" title="${submitted_url}">
+          <span i18n:translate="result_points_to">points to</span>
+          <code>${submitted_url}</code>
+        </span>
+      </div>
+    </section>
+
+  </div>
+</div>

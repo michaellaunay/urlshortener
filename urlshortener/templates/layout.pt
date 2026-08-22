@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="${current_locale}"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      i18n:domain="urlshortener">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title i18n:translate="site_title">Link shortener</title>
+  <link rel="stylesheet" href="${request.static_url('urlshortener:static/style.css')}" />
+</head>
+<body>
+  <a class="skip" href="#main" i18n:translate="skip_to_content">Skip to the form</a>
+
+  <header class="masthead">
+    <p class="wordmark">
+      <span class="wordmark-mark" aria-hidden="true">/</span>
+      <span i18n:translate="site_title">Link shortener</span>
+    </p>
+    <nav class="languages" aria-label="Language">
+      <a tal:repeat="language languages"
+         tal:attributes="href request.route_path('set_locale', locale=language[0],
+                                                 _query={'came_from': request.path});
+                         class python: 'lang is-current' if language[0] == current_locale else 'lang';
+                         hreflang language[0];
+                         aria-current python: 'true' if language[0] == current_locale else None"
+         >${language[1]}</a>
+    </nav>
+  </header>
+
+  <main id="main" class="sheet">
+    <div metal:define-slot="content"></div>
+  </main>
+
+  <footer class="colophon">
+    <p>
+      <span i18n:translate="footer_source">Free software, AGPL v3.</span>
+      <a href="https://github.com/michaellaunay/urlshortener"
+         i18n:translate="footer_source_link">Source code</a>
+    </p>
+    <p class="count" tal:condition="link_count">
+      <span class="count-number">${link_count}</span>
+      <span i18n:translate="footer_links_stored">links stored</span>
+    </p>
+  </footer>
+
+  <script src="${request.static_url('urlshortener:static/app.js')}" defer="defer"></script>
+</body>
+</html>

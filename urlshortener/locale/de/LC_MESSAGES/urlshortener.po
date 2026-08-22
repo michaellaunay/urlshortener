@@ -1,0 +1,154 @@
+# urlshortener — German
+# Copyright (c) 2026 Logikascium
+# This file is distributed under the same licence as the urlshortener package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: urlshortener 2.0.0\n"
+"Report-Msgid-Bugs-To: michaellaunay@logikascium.com\n"
+"POT-Creation-Date: 2026-08-22 00:00+0000\n"
+"PO-Revision-Date: 2026-08-22 00:00+0000\n"
+"Last-Translator: \n"
+"Language: de\n"
+"Language-Team: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: hand-authored, compiled with Babel\n"
+
+#. Default: Link shortener
+#: urlshortener/templates/layout.pt
+msgid "site_title"
+msgstr "Link-Kürzer"
+
+#. Default: Skip to the form
+#: urlshortener/templates/layout.pt
+msgid "skip_to_content"
+msgstr "Zum Formular springen"
+
+#. Default: Free software, AGPL v3.
+#: urlshortener/templates/layout.pt
+msgid "footer_source"
+msgstr "Freie Software, AGPL v3."
+
+#. Default: Source code
+#: urlshortener/templates/layout.pt
+msgid "footer_source_link"
+msgstr "Quellcode"
+
+#. Default: links stored
+#: urlshortener/templates/layout.pt
+msgid "footer_links_stored"
+msgstr "gespeicherte Links"
+
+#. Default: Turn a long address into a short one.
+#: urlshortener/templates/home.pt
+msgid "home_heading"
+msgstr "Aus einer langen Adresse eine kurze machen."
+
+#. Default: Web address
+#: urlshortener/templates/home.pt
+msgid "home_field_label"
+msgstr "Webadresse"
+
+#. Default: Shorten
+#: urlshortener/templates/home.pt
+msgid "home_submit"
+msgstr "Kürzen"
+
+#. Default: Only http:// and https:// addresses. The same address always gives the same short link.
+#: urlshortener/templates/home.pt
+msgid "home_field_help"
+msgstr "Nur http:// und https://. Dieselbe Adresse ergibt immer denselben Kurzlink."
+
+#. Default: Your short link
+#: urlshortener/templates/home.pt
+msgid "result_created"
+msgstr "Ihr Kurzlink"
+
+#. Default: This address already had a short link
+#: urlshortener/templates/home.pt
+msgid "result_existing"
+msgstr "Diese Adresse hatte bereits einen Kurzlink"
+
+#. Default: Copy
+#: urlshortener/templates/home.pt
+msgid "result_copy"
+msgstr "Kopieren"
+
+#. Default: Copied
+#: urlshortener/templates/home.pt
+msgid "result_copied"
+msgstr "Kopiert"
+
+#. Default: points to
+#: urlshortener/templates/home.pt
+msgid "result_points_to"
+msgstr "verweist auf"
+
+#. Default: That short link does not exist.
+#: urlshortener/templates/notfound.pt
+msgid "notfound_heading"
+msgstr "Diesen Kurzlink gibt es nicht."
+
+#. Default: It may have been mistyped, or it may never have been created here. Short codes are case-sensitive.
+#: urlshortener/templates/notfound.pt
+msgid "notfound_body"
+msgstr "Er wurde vielleicht falsch eingegeben oder hier nie erstellt. Bei Kurzcodes wird zwischen Groß- und Kleinschreibung unterschieden."
+
+#. Default: Shorten an address
+#: urlshortener/templates/notfound.pt
+msgid "notfound_back"
+msgstr "Eine Adresse kürzen"
+
+#. Default: Enter a web address to shorten.
+#: urlshortener/views.py
+msgid "error_url_required"
+msgstr "Geben Sie eine Webadresse zum Kürzen ein."
+
+#. Default: That address is too long.
+#: urlshortener/views.py
+msgid "error_url_too_long"
+msgstr "Diese Adresse ist zu lang."
+
+#. Default: Only http:// and https:// addresses can be shortened.
+#: urlshortener/views.py
+msgid "error_url_scheme"
+msgstr "Nur http:// und https:// Adressen können gekürzt werden."
+
+#. Default: That address has no host name.
+#: urlshortener/views.py
+msgid "error_url_host"
+msgstr "Diese Adresse hat keinen Hostnamen."
+
+#. Default: Addresses carrying a user name and password are not accepted.
+#: urlshortener/views.py
+msgid "error_url_credentials"
+msgstr "Adressen mit Benutzername und Passwort werden nicht angenommen."
+
+#. Default: That address points to a private network.
+#: urlshortener/views.py
+msgid "error_url_private"
+msgstr "Diese Adresse verweist auf ein privates Netz."
+
+#. Default: That host is not accepted.
+#: urlshortener/views.py
+msgid "error_url_blocked"
+msgstr "Dieser Host wird nicht akzeptiert."
+
+#. Default: That address contains invalid characters.
+#: urlshortener/views.py
+msgid "error_url_control_characters"
+msgstr "Diese Adresse enthält unzulässige Zeichen."
+
+#. Default: No short code is available. Contact the administrator.
+#: urlshortener/views.py
+msgid "error_code_exhausted"
+msgstr "Es ist kein Kurzcode verfügbar. Wenden Sie sich an die Verwaltung."
+
+#. Default: Too many links created from here. Try again shortly.
+#: urlshortener/views.py
+msgid "error_rate_limited"
+msgstr "Zu viele Links von hier aus erstellt. Versuchen Sie es gleich noch einmal."
+

@@ -1,0 +1,6 @@
+include LICENSE.txt CHANGES.txt README.md
+include *.ini
+recursive-include urlshortener/templates *.pt
+recursive-include urlshortener/static *.css *.js
+recursive-include urlshortener/locale *.pot *.po *.mo
+recursive-include docs *.md

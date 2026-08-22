@@ -1,0 +1,14 @@
+<div metal:use-macro="load: layout.pt"
+     xmlns:tal="http://xml.zope.org/namespaces/tal"
+     xmlns:metal="http://xml.zope.org/namespaces/metal"
+     xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+     i18n:domain="urlshortener">
+  <div metal:fill-slot="content">
+    <h1 class="lede" i18n:translate="notfound_heading">That short link does not exist.</h1>
+    <p class="notice" i18n:translate="notfound_body">
+      It may have been mistyped, or it may never have been created here. Short codes are
+      case-sensitive.
+    </p>
+    <p><a class="back" href="${request.route_path('home')}" i18n:translate="notfound_back">Shorten an address</a></p>
+  </div>
+</div>
