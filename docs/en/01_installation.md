@@ -58,7 +58,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-486 tests, 91% coverage. The three exact quality-CI commands — run
+494 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
@@ -89,36 +89,30 @@ sudo -u urlshortener /srv/urlshortener/app/.venv/bin/pip \
      install --no-deps /srv/urlshortener/app
 ```
 
-A minimal systemd unit:
+The systemd unit is **shipped** in the repository, at
+`deploy/systemd/urlshortener.service` — rather than copied here, where
+it would drift. It already had: the inline version in this chapter and
+the shipped file disagreed about `WorkingDirectory`, which is not
+cosmetic, since that is where `find_dotenv(usecwd=True)` looks for the
+`.env`.
 
-```ini
-[Unit]
-Description=urlshortener
-After=network-online.target
-
-[Service]
-User=urlshortener
-WorkingDirectory=/srv/urlshortener/app
-ExecStartPre=/srv/urlshortener/app/.venv/bin/python -m urlshortener.upgrades /srv/urlshortener/etc/production.ini
-ExecStart=/srv/urlshortener/app/.venv/bin/pserve /srv/urlshortener/etc/production.ini
-Restart=on-failure
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/srv/urlshortener/var
-UMask=0027
-
-[Install]
-WantedBy=multi-user.target
+```bash
+sudo cp deploy/systemd/urlshortener.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now urlshortener
 ```
 
-`ExecStartPre` is not decorative: the schema must be ready before the
-first request, or the first visitor of a fresh deployment gets a 500.
+Two things to read there rather than repeat elsewhere:
 
-Careful with `ProtectHome=true` if the clone lives under `/home`: the
-unit will not see it. Either follow the layout above, or adjust
-`WorkingDirectory`, `ExecStart` and `ProtectHome` together.
+- `ExecStartPre` is not decorative: the schema must be ready before the
+  first request, or the first visitor of a fresh deployment gets a 500.
+  It is also the command that failed on every fresh install before
+  train 0017.
+
+- Careful with `ProtectHome=true` if the clone lives under `/home`: the
+  unit will not see it. Either follow the layout above, or adjust
+  `WorkingDirectory`, `ExecStart` and `ProtectHome` together — in the
+  shipped file, not in a copy.
 
 ## Configuration
 

@@ -207,3 +207,20 @@ def test_no_document_still_advertises_the_old_code_length():
             assert "62⁷" not in body, "%s/%s still quotes 62^7" % (root, name)
             if "code_length" in body and "| `" in body:
                 assert "| `%d` |" % AppSettings.code_length in body or True
+
+
+def test_the_systemd_unit_is_shipped_not_copied():
+    """It was in two places and they disagreed — on `WorkingDirectory`,
+    which is where `find_dotenv(usecwd=True)` looks for the `.env`. Two
+    copies of a deployment file is the drift these locks exist for."""
+    unit = os.path.join(ROOT, "deploy", "systemd", "urlshortener.service")
+    assert os.path.exists(unit)
+    body = _read(unit)
+    assert "ExecStartPre" in body and "urlshortener.upgrades" in body
+
+    for chapter in ("fr/01_installation.md", "en/01_installation.md"):
+        chapter_body = _read(ROOT, "docs", *chapter.split("/"))
+        assert "deploy/systemd/urlshortener.service" in chapter_body, chapter
+        assert "[Service]" not in chapter_body, (
+            "%s embeds a second copy of the unit" % chapter
+        )

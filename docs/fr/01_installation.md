@@ -60,7 +60,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-486 tests, 91 % de couverture. Les trois commandes exactes de la CI
+494 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash
@@ -91,37 +91,30 @@ sudo -u urlshortener /srv/urlshortener/app/.venv/bin/pip \
      install --no-deps /srv/urlshortener/app
 ```
 
-Unité systemd minimale :
+L'unité systemd est **livrée** dans le dépôt, à
+`deploy/systemd/urlshortener.service` — plutôt que recopiée ici, où
+elle divergerait. Elle a d'ailleurs divergé : la version en ligne dans
+ce chapitre et le fichier livré ne disaient pas la même chose sur
+`WorkingDirectory`, ce qui n'est pas cosmétique — c'est de là que
+`find_dotenv(usecwd=True)` cherche le `.env`.
 
-```ini
-[Unit]
-Description=urlshortener
-After=network-online.target
-
-[Service]
-User=urlshortener
-WorkingDirectory=/srv/urlshortener/app
-ExecStartPre=/srv/urlshortener/app/.venv/bin/python -m urlshortener.upgrades /srv/urlshortener/etc/production.ini
-ExecStart=/srv/urlshortener/app/.venv/bin/pserve /srv/urlshortener/etc/production.ini
-Restart=on-failure
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/srv/urlshortener/var
-UMask=0027
-
-[Install]
-WantedBy=multi-user.target
+```bash
+sudo cp deploy/systemd/urlshortener.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now urlshortener
 ```
 
-`ExecStartPre` n'est pas décoratif : le schéma doit être prêt avant la
-première requête, sinon le premier visiteur d'un déploiement neuf reçoit
-une 500.
+Deux points à y lire plutôt qu'à les recopier ailleurs :
 
-Attention à `ProtectHome=true` si le clone est sous `/home` : l'unité ne
-le verra pas. Suivre l'arborescence ci-dessus, ou adapter les trois
-directives `WorkingDirectory`, `ExecStart` et `ProtectHome`.
+- `ExecStartPre` n'est pas décoratif : le schéma doit être prêt avant la
+  première requête, sinon le premier visiteur d'un déploiement neuf
+  reçoit une 500. C'est aussi la commande qui échouait sur toute
+  installation neuve avant le train 0017.
+
+- Attention à `ProtectHome=true` si le clone est sous `/home` : l'unité
+  ne le verra pas. Suivre l'arborescence ci-dessus, ou adapter les
+  directives `WorkingDirectory`, `ExecStart` et `ProtectHome` — dans le
+  fichier livré, pas dans une copie.
 
 ## Configuration
 

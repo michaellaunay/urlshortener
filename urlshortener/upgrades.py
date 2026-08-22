@@ -16,6 +16,7 @@ Run against a stopped application:
 """
 from __future__ import annotations
 
+import os
 import sys
 
 from pyramid.paster import bootstrap, setup_logging
@@ -80,6 +81,31 @@ def run_pending_upgrades(dbsession, commit_each=None) -> int:
     return get_schema_version(dbsession)
 
 
+def ensure_database_directory(engine) -> None:
+    """Create the directory an SQLite file needs, if it is missing.
+
+    The README's first gesture is `python -m urlshortener.upgrades
+    development.ini`, and `development.ini` points at
+    `%(here)s/var/urlshortener.sqlite`. `var/` is gitignored, so on a
+    fresh clone it does not exist and SQLite answers `unable to open
+    database file` -- the second way in a row that the documented first
+    command failed on a fresh install. The container entrypoint already
+    did `mkdir -p var`; bare metal was the odd one out.
+
+    Only for an on-disk SQLite file: an in-memory database has no
+    directory, and a PostgreSQL URL has no business making the client
+    create anything.
+    """
+    url = engine.url
+    if url.get_backend_name() != "sqlite" or not url.database:
+        return
+    if url.database == ":memory:":
+        return
+    directory = os.path.dirname(os.path.abspath(url.database))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+
 def main(argv=None) -> int:
     argv = sys.argv if argv is None else argv
     if len(argv) < 2:
@@ -89,6 +115,7 @@ def main(argv=None) -> int:
     setup_logging(config_uri)
     env = bootstrap(config_uri)
     try:
+        ensure_database_directory(env["registry"]["dbengine"])
         create_schema(env["registry"]["dbengine"])
         request = env["request"]
         dbsession = request.dbsession

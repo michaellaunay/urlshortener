@@ -1,6 +1,36 @@
 Changelog
 =========
 
+2.0.18 (2026-08-22) — the other half of the first command (train 0018)
+------------------------------------------------------------------------
+
+Follows train 0017, which opened the transaction the upgrade CLI never
+began. The same gesture failed for a **second** reason, on exactly the
+installs that fix was written for.
+
+- ``var/`` is gitignored, so on a fresh clone it does not exist, and
+  ``python -m urlshortener.upgrades development.ini`` — the README's
+  first command — answered ``unable to open database file``. The
+  container entrypoint already did ``mkdir -p var``; bare metal was the
+  odd one out, which is why neither the Smoke workflow nor a re-run in
+  an existing tree ever showed it. The CLI now creates the directory an
+  SQLite file needs, and only that: an in-memory database has none, and
+  a PostgreSQL URL has no business making the client create anything.
+
+- **The systemd unit was in two places and they disagreed.** Train 0017
+  shipped ``deploy/systemd/urlshortener.service``; both installation
+  chapters already embedded one inline, with a different
+  ``WorkingDirectory``. That is not cosmetic — it is where
+  ``find_dotenv(usecwd=True)`` looks for the ``.env``. The shipped file
+  is now the only copy, the chapters point at it, and a test fails on
+  any chapter that embeds a second ``[Service]`` block.
+
+The pattern is worth naming: both failures were invisible to every
+check that ran, because every check ran in a tree that had already run
+once. A characterisation test now drives the real CLI against a
+database path whose parent does not exist.
+
+
 2.0.17 (2026-08-22) — the bare-metal upgrade path opens its transaction (train 0017)
 ----------------------------------------------------------------------
 
