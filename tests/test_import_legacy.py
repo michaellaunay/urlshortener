@@ -8,6 +8,7 @@ import sqlite3
 
 import pytest
 
+from urlshortener.constants_and_globals import AppSettings
 from urlshortener.models import Link
 from urlshortener.tools.import_legacy import import_rows, read_legacy_rows
 
@@ -18,7 +19,8 @@ CREATE TABLE WEB_URL(
     URL TEXT NOT NULL UNIQUE)
 """
 
-ALLOWED = ("http", "https")
+# The service's own policy object, as the tool now takes it.
+ALLOWED = AppSettings(block_private_targets=False)
 
 
 @pytest.fixture
@@ -100,8 +102,12 @@ def test_unservable_rows_are_reported_not_silently_fixed(tmp_path, dbsession):
     assert report.imported == 1
     reasons = {code: reason for code, _url, reason in report.rejected}
     assert reasons["bb2"] == "scheme:javascript"
-    assert reasons["cc3"] == "scheme:ftp"
+    assert reasons["cc3"].startswith("error_url_scheme")
     assert reasons["dd/4"] == "bad_code"
+    # javascript: and a malformed code can never be imported; ftp: is
+    # merely outside today's allowlist.
+    assert {code for code, _u, _r in report.refused_always} == {"bb2", "dd/4"}
+    assert {code for code, _u, _r in report.refused_by_policy} == {"cc3"}
     # Nothing was rewritten to make it pass.
     assert dbsession.query(Link).count() == 1
 
@@ -109,4 +115,4 @@ def test_unservable_rows_are_reported_not_silently_fixed(tmp_path, dbsession):
 def test_the_report_reads_as_an_operator_would_expect(legacy_db, dbsession):
     report = import_rows(dbsession, read_legacy_rows(legacy_db), ALLOWED)
     text = report.as_text()
-    assert "rows read" in text and "imported" in text and "rejected" in text
+    assert "rows read" in text and "imported" in text and "refused" in text

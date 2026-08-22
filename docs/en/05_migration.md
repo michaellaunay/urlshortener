@@ -18,9 +18,45 @@ a re-minted code is a dead link.
 URLs are imported verbatim too, and that is a choice. Running them
 through `normalise_url` would "fix" some of them — and a fixed URL is a
 different destination from the one the link has been promising for ten
-years. Unservable rows (scheme outside the allowlist, control
-characters, illegal code) are **reported and skipped**, never silently
-rewritten: the list goes back to the operator, who decides.
+years. `normalise_url` is therefore used as a **judge** and never as a
+transformer: its return value is discarded, only its verdict counts.
+
+### Two kinds of refusal
+
+They call for different actions, which is why the report separates
+them.
+
+**Unfixable** — the row cannot work, or must not. No flag lifts these:
+
+| Reason | What it means |
+| --- | --- |
+| `bad_code` | Not in the code alphabet |
+| `reserved_code` | **A route already answers on that path** |
+| `empty_url` | No target |
+| `control_chars` | A carriage return becomes header injection |
+| `scheme:javascript` (and `data`, `vbscript`) | Would put an attack vector in a `Location:` under your own domain |
+
+`reserved_code` deserves a word: `healthz` is seven characters of the
+alphabet, so `is_valid_code` called it legal and it imported cleanly —
+into a row the redirect view will never be asked about, because
+`/healthz` is a route. `tests/test_routes.py` already asserts that no
+route may shadow a code; the import was the door left open. The tool
+**reports and stops** rather than renaming: a renamed code is a dead
+link, and only you can weigh a dead link against an unreachable one.
+The two ways out are accepting the loss, or moving the route.
+
+**Policy** — the link works perfectly well; only the 2.x rules would
+not have created it today: a scheme outside the allowlist (`ftp:`), a
+private target, a blocked host, an invalid port, an over-long URL.
+Those you can take back knowingly:
+
+```bash
+python -m urlshortener.tools.import_legacy production.ini urls.db --allow-unsafe-legacy
+```
+
+The flag lifts **exactly** the policy refusals and never the others: a
+flag that can import an XSS vector is not a flag, it is a trap laid for
+a future operator in a hurry.
 
 ## Procedure
 
@@ -43,10 +79,12 @@ rows read              : 1428
 imported               : 1425
 already present        : 0
 duplicate target URL   : 0
-rejected               : 3
-  REJECTED bb2          scheme:javascript  javascript:alert(1)
-  REJECTED cc3          scheme:ftp         ftp://example.org/file
-  REJECTED dd/4         bad_code           https://example.org/x
+refused (unfixable)    : 2
+refused (policy)       : 2
+  REFUSED  bb2            scheme:javascript            javascript:alert(1)
+  REFUSED  healthz        reserved_code                https://example.org/x
+  POLICY   cc3            error_url_scheme:ftp         ftp://example.org/file
+  POLICY   dd4            error_url_private:127.0.0.1  http://127.0.0.1/admin
 ```
 
 The import is **idempotent**: a code already present is left alone and

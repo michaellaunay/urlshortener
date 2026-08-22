@@ -1,6 +1,37 @@
 Changelog
 =========
 
+2.0.6 (2026-08-22) — the legacy import (external audit, train 0006)
+--------------------------------------------------------------------
+
+- **C-10 (medium, fixed) — an imported code a route already answers
+  on.** ``healthz`` is seven characters of the code alphabet, so
+  ``is_valid_code`` called it legal and a 2016 row carrying it imported
+  cleanly — into a link nobody can ever follow, because ``/healthz`` is
+  a route. ``tests/test_routes.py`` already asserted that no route may
+  shadow a code; the import was the one door left open. Reported and
+  refused rather than renamed: a renamed code is a dead link, and only
+  the operator can weigh a dead link against an unreachable one.
+- **C-10 (medium, fixed) — the import applied a fraction of the
+  policy.** It checked the code, the emptiness, the control characters
+  and the scheme, and nothing else, so a migration could reintroduce
+  private targets, blocked hosts, invalid ports and over-long URLs that
+  the running service refuses. It now judges every row with
+  ``normalise_url`` — as a JUDGE, never as a transformer: URLs and
+  codes are still stored verbatim, which is the migration contract.
+
+Refusals are now of two kinds, because they call for two different
+actions. **Unfixable** rows cannot work or must not work (bad code,
+reserved code, empty URL, control characters, and the
+``javascript:``/``data:``/``vbscript:`` schemes); no flag lifts them.
+**Policy** rows are links that work, which today's rules simply would
+not create; ``--allow-unsafe-legacy`` imports them once the operator
+has read the list. The flag lifts exactly the policy refusals and never
+the others — a flag that can import an XSS vector is not a flag, it is
+a trap laid for a future operator in a hurry. The report prints both
+lists and tells the operator which action fits which.
+
+
 2.0.5 (2026-08-22) — request-body limits (external audit, train 0005)
 ----------------------------------------------------------------------
 
