@@ -28,6 +28,144 @@ _LABEL = re.compile(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
 #: Hostnames that always designate the machine itself.
 LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost", "ip6-loopback"})
 
+#: A label that a browser will try to read as a number. `ipaddress`
+#: refuses every one of these spellings; a browser accepts them all.
+_NUMERIC_LABEL = re.compile(r"^(0[xX][0-9a-fA-F]+|[0-9]+)$")
+
+
+def _parse_ipv4_part(part: str):
+    """Read one dotted part the way a browser does, or return None.
+
+    Three bases, and the prefix decides: `0x1f` is hexadecimal, `017`
+    is octal, `17` is decimal. Python's `ipaddress` module knows only
+    the third, which is the whole problem this function exists to fix.
+    """
+    if not part:
+        return None
+    try:
+        if part[:2] in ("0x", "0X"):
+            return int(part[2:], 16) if len(part) > 2 else 0
+        if len(part) > 1 and part[0] == "0":
+            return int(part[1:], 8)
+        return int(part, 10)
+    except ValueError:
+        return None
+
+
+def parse_browser_ipv4(host: str):
+    """Return the IPv4Address a browser would reach, or None.
+
+    EXTERNAL AUDIT 2026-08-22, finding C-02. `block_private_targets`
+    was checked with `ipaddress.ip_address()`, which accepts exactly
+    one spelling of an address. A browser accepts four, and the URL
+    Standard requires it to:
+
+        http://127.0.0.1/     refused   (the only one we caught)
+        http://2130706433/    ACCEPTED  -- same machine
+        http://127.1/         ACCEPTED  -- same machine
+        http://0x7f000001/    ACCEPTED  -- same machine
+        http://0177.0.0.1/    ACCEPTED  -- same machine
+
+    So the promise `block_private_targets = true` was not kept: a short
+    link could hide `127.0.0.1` from the visitor who follows it. This
+    is not server-side SSRF -- the service never fetches the target --
+    but on an internal network it is a way to dress up an internal
+    address as a public link.
+
+    Rules from the URL Standard section 3.3: at most four parts, a
+    trailing empty part dropped, every part but the last at most 255,
+    the last part absorbing the remaining space.
+    """
+    parts = host.split(".")
+    if len(parts) > 1 and parts[-1] == "":
+        parts = parts[:-1]
+    if not parts or len(parts) > 4:
+        return None
+    numbers = [_parse_ipv4_part(part) for part in parts]
+    if any(number is None for number in numbers):
+        return None
+    if any(number > 255 for number in numbers[:-1]):
+        return None
+    if numbers[-1] >= 256 ** (4 - (len(numbers) - 1)):
+        return None
+    value = numbers[-1]
+    for index, number in enumerate(numbers[:-1]):
+        value += number * 256 ** (3 - index)
+    try:
+        return ipaddress.IPv4Address(value)
+    except ipaddress.AddressValueError:
+        return None
+
+
+def _looks_numeric(host: str) -> bool:
+    """True when a browser would read the LAST label as a number.
+
+    `example.0x1` is not a domain to a browser: it tries the IPv4
+    reading, fails, and rejects the URL. We refuse it too rather than
+    store something no client can reach.
+    """
+    labels = host.rstrip(".").split(".")
+    return bool(labels) and bool(_NUMERIC_LABEL.match(labels[-1]))
+
+
+def canonical_host(host: str, strict=True):
+    """Return `(canonical_ascii_host, ip_or_None)`.
+
+    ONE canonicalisation, used by every check that follows. The bug
+    class this closes (external audit C-08) is having several spellings
+    of one name and testing a different spelling from the one that is
+    stored:
+
+        blocked_hosts = xn--bcher-kva.example
+        https://xn--bcher-kva.example/   refused
+        https://bücher.example/          ACCEPTED   -- same DNS name
+
+    With `strict=False` nothing is raised: that mode is for
+    `to_wire_url`, which also runs against rows imported verbatim from
+    2016 and must never turn an odd old row into an exception.
+    """
+    if not host:
+        if strict:
+            raise InvalidURL("error_url_host")
+        return host, None
+
+    # IPv6 literal -- `parts.hostname` has already dropped the brackets.
+    if ":" in host:
+        try:
+            address = ipaddress.IPv6Address(host.strip("[]"))
+        except ValueError:
+            if strict:
+                raise InvalidURL("error_url_host", host) from None
+            return host, None
+        return "[%s]" % address.compressed, address
+
+    address = parse_browser_ipv4(host)
+    if address is not None:
+        return address.compressed, address
+    if _looks_numeric(host):
+        # A numeric-looking host that is NOT a valid address: a browser
+        # rejects it outright, so storing it would mint a dead link.
+        if strict:
+            raise InvalidURL("error_url_host", host)
+        return host, None
+
+    candidate = host.rstrip(".").lower()
+    if not candidate or len(candidate) > 253:
+        if strict:
+            raise InvalidURL("error_url_host", host)
+        return host, None
+    try:
+        ascii_host = candidate.encode("idna").decode("ascii").lower()
+    except (UnicodeError, UnicodeDecodeError):
+        if strict:
+            raise InvalidURL("error_url_host", host) from None
+        return host, None
+    if not all(_LABEL.match(label) for label in ascii_host.split(".")):
+        if strict:
+            raise InvalidURL("error_url_host", host)
+        return host, None
+    return ascii_host, None
+
 
 class InvalidURL(ValueError):
     """A submitted URL was refused.
@@ -43,20 +181,26 @@ class InvalidURL(ValueError):
         self.detail = detail
 
 
-def _host_is_private(host: str) -> bool:
-    """True for a LITERAL address inside a private/loopback/reserved range.
+def _host_is_private(host: str, address=None) -> bool:
+    """True for a LITERAL address outside the public internet.
 
-    A name is never resolved here (see the module docstring), so
-    `internal.example.com` passes; only addresses written out as
-    numbers, and the well-known local names, are caught.
+    `address` is the one `canonical_host` already parsed, so the four
+    browser spellings of 127.0.0.1 are all judged here, not just the
+    dotted-quad one (external audit C-02).
+
+    A name is never resolved (see the module docstring), so
+    `internal.example.com` passes; only literal addresses, and the
+    well-known local names, are caught.
     """
-    cleaned = host.strip("[]").lower()
-    if cleaned in LOCAL_HOSTNAMES:
+    if host.strip("[]").lower() in LOCAL_HOSTNAMES:
         return True
-    try:
-        address = ipaddress.ip_address(cleaned)
-    except ValueError:
+    if address is None:
         return False
+    # `is_global` is the complement we actually want: it covers the
+    # documentation ranges, 6to4, benchmarking and the rest, instead of
+    # a hand-kept list of properties that is short by construction.
+    if not address.is_global:
+        return True
     return (
         address.is_private
         or address.is_loopback
@@ -93,21 +237,25 @@ def to_wire_url(url: str) -> str:
     """
     try:
         parts = urlsplit(url)
+        host = parts.hostname or ""
     except ValueError:
         return url
 
-    host = parts.hostname or ""
-    try:
-        ascii_host = host.encode("idna").decode("ascii") if host else ""
-    except (UnicodeError, UnicodeDecodeError):
-        # Not encodable as IDNA: leave the authority alone rather than
-        # invent a destination. `normalise_url` refuses such hosts at
-        # creation; a legacy row carrying one keeps its own shape.
-        ascii_host = host
+    ascii_host, _address = canonical_host(host, strict=False)
 
     netloc = ascii_host
-    if parts.port:
-        netloc = "%s:%d" % (netloc, parts.port)
+    try:
+        port = parts.port
+    except ValueError:
+        # REGRESSION of my own 2.0.1 fix, caught by external audit C-16:
+        # `parts.port` is lazy and raises on `:99999` or `:abc`, so
+        # to_wire_url -- called from normalise_url -- turned a bad port
+        # into a 500 instead of a refusal. Creation now rejects those
+        # ports before reaching here; this branch is for the legacy rows
+        # that never went through creation.
+        port = None
+    if port:
+        netloc = "%s:%d" % (netloc, port)
 
     return urlunsplit((
         parts.scheme,
@@ -132,39 +280,18 @@ def _split(candidate):
         raise InvalidURL("error_url_host") from None
 
 
-def _is_valid_hostname(host: str) -> bool:
-    """True when `host` is a syntactically usable authority.
-
-    Without this, `<script>alert(1)</script>` is a valid target: the
-    default scheme gets prepended, `urlsplit` happily reports a netloc,
-    and the string ends up stored and later echoed. Internationalised
-    names are accepted through their IDNA form, so `münchen.example`
-    passes while `<script>` does not.
-    """
-    if not host:
-        return False
-    # An IPv6 literal: `parts.hostname` has already removed the brackets.
-    if ":" in host:
-        try:
-            ipaddress.IPv6Address(host.strip("[]"))
-        except ValueError:
-            return False
-        return True
-    candidate = host.rstrip(".")
-    if not candidate or len(candidate) > 253:
-        return False
-    try:
-        ascii_host = candidate.encode("idna").decode("ascii")
-    except (UnicodeError, UnicodeDecodeError):
-        return False
-    return all(_LABEL.match(label) for label in ascii_host.split("."))
-
-
 def _host_is_blocked(host: str, blocked) -> bool:
-    """True when `host` is, or is a subdomain of, a blocked name."""
-    host = host.lower().rstrip(".")
+    """True when `host` is, or is a subdomain of, a blocked name.
+
+    Both sides are canonicalised, so the operator can write the list in
+    whichever spelling they think in -- `bücher.example` and
+    `xn--bcher-kva.example` block the same name (external audit C-08).
+    """
+    host = canonical_host(host, strict=False)[0]
     for blocked_host in blocked:
-        blocked_host = blocked_host.lower().rstrip(".")
+        blocked_host = canonical_host(str(blocked_host), strict=False)[0]
+        if not blocked_host:
+            continue
         if host == blocked_host or host.endswith("." + blocked_host):
             return True
     return False
@@ -210,20 +337,30 @@ def normalise_url(raw, settings) -> str:
     if "@" in parts.netloc:
         raise InvalidURL("error_url_credentials")
 
-    host = parts.hostname or ""
-    if not _is_valid_hostname(host):
-        raise InvalidURL("error_url_host", host)
+    # The port BEFORE anything else touches the authority: `parts.port`
+    # is a lazy property that raises on `:99999` or `:abc`, and one of
+    # the callers below reads it (external audit C-16).
+    try:
+        port = parts.port
+    except ValueError:
+        raise InvalidURL("error_url_port") from None
+
+    # ONE canonical spelling of the host, computed once. Every check
+    # below uses it, and it is what gets stored -- so no check can ever
+    # again be run against a different spelling from the stored one.
+    host, address = canonical_host(parts.hostname or "")
 
     if settings.blocked_hosts and _host_is_blocked(host, settings.blocked_hosts):
         raise InvalidURL("error_url_blocked", host)
 
-    if settings.block_private_targets and _host_is_private(host):
+    if settings.block_private_targets and _host_is_private(host, address):
         raise InvalidURL("error_url_private", host)
 
-    # Rebuild from the parsed pieces: this drops nothing meaningful and
-    # guarantees what is stored is what was parsed and checked.
+    # Rebuild from the canonical pieces: what is stored is exactly what
+    # was checked.
+    netloc = host if port is None else "%s:%d" % (host, port)
     normalised = to_wire_url(
-        urlunsplit((scheme, parts.netloc, parts.path, parts.query, parts.fragment))
+        urlunsplit((scheme, netloc, parts.path, parts.query, parts.fragment))
     )
     if len(normalised) > settings.max_url_length:
         raise InvalidURL("error_url_too_long")

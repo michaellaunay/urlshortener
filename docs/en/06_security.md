@@ -36,10 +36,28 @@ validated.
 stored URL becomes a header-injection attempt the day it is written
 into `Location:`.
 
-**Private addresses**: `127.0.0.1`, `10/8`, `192.168/16`, `169.254/16`
-(cloud metadata), `::1`, `localhost` are refused by default.
+**Canonical host**: one spelling of the host is computed, every check
+runs on it, and it is what gets stored. That closes two bypasses found
+by the external audit: alternative IPv4 spellings (`2130706433`,
+`127.1`, `0x7f000001`, `0177.0.0.1` are all `127.0.0.1` to a browser,
+and `ipaddress` knows only one of them), and the two spellings of an
+international name (`bücher.example` and `xn--bcher-kva.example` are
+the same DNS name). A numeric-looking host that is not a valid address
+(`1.2.3.4.5`) is refused: a browser rejects it, so storing it would
+mint a dead link.
+
+**Private addresses**: refused by default, on the canonical form. The
+criterion is `is_global` — reachable on the public internet — rather
+than a hand-kept list of properties, which is short by construction.
+That covers loopback, `10/8`, `192.168/16`, `169.254/16` (cloud
+metadata), `::1`, `localhost`, **and also** the documentation ranges
+(`192.0.2/24`, `198.51.100/24`, `203.0.113/24`, `2001:db8::/32`).
 `urlshortener.block_private_targets = false` lifts the guard for a
 purely internal service.
+
+**Port**: validated before anything else touches the authority.
+`parts.port` is a lazy property that raises on `:99999` or `:abc`;
+reading it late turned a typo into a 500.
 
 **Codes**: drawn from `secrets`, 62⁷ possibilities at the default
 length, collisions handled with a SAVEPOINT and a fresh draw.

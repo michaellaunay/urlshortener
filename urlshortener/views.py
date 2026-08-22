@@ -44,7 +44,8 @@ ERROR_MESSAGES = {
     "error_url_scheme": _(
         "error_url_scheme", default="Only http:// and https:// addresses can be shortened."
     ),
-    "error_url_host": _("error_url_host", default="That address has no host name."),
+    "error_url_host": _("error_url_host", default="That address has no usable host name."),
+    "error_url_port": _("error_url_port", default="That address has an invalid port number."),
     "error_url_credentials": _(
         "error_url_credentials",
         default="Addresses carrying a user name and password are not accepted.",

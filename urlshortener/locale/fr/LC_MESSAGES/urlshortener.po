@@ -117,10 +117,15 @@ msgstr "Cette adresse est trop longue."
 msgid "error_url_scheme"
 msgstr "Seules les adresses http:// et https:// peuvent être raccourcies."
 
-#. Default: That address has no host name.
+#. Default: That address has no usable host name.
 #: urlshortener/views.py
 msgid "error_url_host"
-msgstr "Cette adresse n'a pas de nom d'hôte."
+msgstr "Cette adresse n'a pas de nom d'hôte utilisable."
+
+#. Default: That address has an invalid port number.
+#: urlshortener/views.py
+msgid "error_url_port"
+msgstr "Cette adresse a un numéro de port invalide."
 
 #. Default: Addresses carrying a user name and password are not accepted.
 #: urlshortener/views.py

@@ -117,9 +117,14 @@ msgstr ""
 msgid "error_url_scheme"
 msgstr ""
 
-#. Default: That address has no host name.
+#. Default: That address has no usable host name.
 #: urlshortener/views.py
 msgid "error_url_host"
+msgstr ""
+
+#. Default: That address has an invalid port number.
+#: urlshortener/views.py
+msgid "error_url_port"
 msgstr ""
 
 #. Default: Addresses carrying a user name and password are not accepted.

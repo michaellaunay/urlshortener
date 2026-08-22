@@ -1,6 +1,38 @@
 Changelog
 =========
 
+2.0.2 (2026-08-22) — host canonicalisation (external audit, train 0002)
+-----------------------------------------------------------------------
+
+Findings C-02, C-08 and C-16 of the external audit, plus a regression
+of my own. Tests in ``tests/test_audit_external_20260822.py``.
+
+- **C-02 (medium, fixed)** ``block_private_targets`` was checked with
+  ``ipaddress.ip_address()``, which accepts exactly one spelling of an
+  address. A browser accepts four: ``http://2130706433/``,
+  ``http://127.1/``, ``http://0x7f000001/`` and ``http://0177.0.0.1/``
+  were all ACCEPTED and all reach 127.0.0.1. Adds a URL-Standard IPv4
+  reader used by the guard. A numeric-looking host that is not a valid
+  address (``1.2.3.4.5``) is now refused, as a browser refuses it.
+- **C-08 (medium, fixed)** ``blocked_hosts`` compared the raw host, so
+  ``bücher.example`` walked past a list containing
+  ``xn--bcher-kva.example`` — the same DNS name. Both sides are now
+  canonicalised; either spelling blocks both.
+- **C-16 (low, fixed) and a 2.0.1 regression** ``parts.port`` is lazy
+  and raises on ``:99999`` or ``:abc``. ``to_wire_url`` read it, so my
+  own 2.0.1 fix turned a bad port into a **500 at creation**. The port
+  is validated up front (new ``error_url_port``, translated into the
+  four languages) and ``to_wire_url`` no longer raises on anything —
+  it also runs against rows imported verbatim from 2016.
+
+Behaviour widened on purpose: the private-target guard now uses
+``is_global`` instead of a hand-kept property list, so the
+documentation ranges (``192.0.2/24``, ``198.51.100/24``,
+``203.0.113/24``, ``2001:db8::/32``) are refused too when the guard is
+on. The canonical host is also what gets STORED, so two spellings of
+one target now de-duplicate to a single short code.
+
+
 2.0.1 (2026-08-22) — internal security audit
 --------------------------------------------
 

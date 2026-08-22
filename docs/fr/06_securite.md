@@ -35,10 +35,29 @@ nom d'hôte contrôlée, forme IDNA acceptée, littéral IPv6 validé.
 une URL stockée devient une injection d'en-tête le jour où elle est
 écrite dans `Location:`.
 
-**Adresses privées** : `127.0.0.1`, `10/8`, `192.168/16`, `169.254/16`
-(métadonnées cloud), `::1`, `localhost` sont refusés par défaut.
-`urlshortener.block_private_targets = false` lève la garde pour un
-service purement interne.
+**Hôte canonique** : une seule écriture de l'hôte est calculée, puis
+tous les contrôles portent sur elle et c'est elle qui est stockée.
+Cela ferme deux contournements trouvés par l'audit externe : les
+écritures alternatives d'une IPv4 (`2130706433`, `127.1`,
+`0x7f000001`, `0177.0.0.1` sont toutes `127.0.0.1` pour un navigateur,
+et `ipaddress` n'en connaît qu'une), et les deux orthographes d'un nom
+international (`bücher.example` et `xn--bcher-kva.example` sont le même
+nom DNS). Un hôte à l'allure numérique qui n'est pas une adresse
+valable (`1.2.3.4.5`) est refusé : un navigateur le rejette, le stocker
+reviendrait à fabriquer un lien mort.
+
+**Adresses privées** : refusées par défaut, sur la forme canonique.
+Le critère est `is_global` — c'est-à-dire « joignable sur l'internet
+public » — plutôt qu'une liste de propriétés tenue à la main, qui est
+courte par construction. Cela couvre la loopback, `10/8`, `192.168/16`,
+`169.254/16` (métadonnées cloud), `::1`, `localhost`, **et aussi** les
+plages de documentation (`192.0.2/24`, `198.51.100/24`, `203.0.113/24`,
+`2001:db8::/32`). `urlshortener.block_private_targets = false` lève la
+garde pour un service purement interne.
+
+**Port** : validé avant tout le reste. `parts.port` est une propriété
+paresseuse qui lève sur `:99999` ou `:abc` ; la lire tardivement
+transformait une saisie fautive en 500.
 
 **Codes** : tirés de `secrets`, 62⁷ possibilités à la longueur par
 défaut, collisions gérées par SAVEPOINT et nouveau tirage.
