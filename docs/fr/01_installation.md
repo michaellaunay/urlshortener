@@ -108,7 +108,7 @@ variable d'environnement correspondante. L'ordre est
 | --- | --- | --- | --- |
 | `urlshortener.base_url` | `URLSHORTENER_BASE_URL` | `http://localhost:5123/` | Préfixe **public** des liens, slash final compris |
 | `sqlalchemy.url` | `SQLALCHEMY_URL` | fichier SQLite dans `var/` | Base de données |
-| `urlshortener.code_length` | `URLSHORTENER_CODE_LENGTH` | `9` | Longueur d'un code neuf |
+| `urlshortener.code_length` | `URLSHORTENER_CODE_LENGTH` | `11` | Longueur d'un code neuf |
 | `urlshortener.max_url_length` | `URLSHORTENER_MAX_URL_LENGTH` | `2048` | Longueur maximale d'une cible |
 | `urlshortener.max_body_bytes` | `URLSHORTENER_MAX_BODY_BYTES` | `16384` | Taille maximale du corps d'une requête (plafonne aussi waitress) |
 | `urlshortener.default_scheme` | `URLSHORTENER_DEFAULT_SCHEME` | `http` | Schéma ajouté quand il manque |

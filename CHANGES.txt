@@ -1,6 +1,33 @@
 Changelog
 =========
 
+2.0.8 (2026-08-22) — eleven-character codes (train 0008)
+---------------------------------------------------------
+
+- Freshly minted codes go from nine to eleven characters, the length of
+  a YouTube identifier (``youtu.be/dQw4w9WgXcQ``). Maintainer decision,
+  taken one train after 0007 raised 7 to 9.
+
+  62**11 is about 5.2e19, or 65.5 bits. YouTube's alphabet has 64
+  symbols and ours 62, so the two sit within half a bit of each other
+  (66.0 against 65.5) — and nobody has ever found a YouTube link too
+  long to paste.
+
+  With a million links stored, a blind probe now finds one per 52
+  trillion attempts, against 13 billion at nine characters and 3.5
+  million at seven.
+
+  **Nothing already handed out changes**, including the nine-character
+  codes minted between 0007 and this train: length governs codes being
+  MINTED, and resolution accepts any legal code whatever its size.
+
+  The ratchet test moves with the default — ``code_length >= 11``, so
+  raising it later passes and lowering it fails — and a new test pins
+  the length to ``len("dQw4w9WgXcQ")`` and checks the two alphabets
+  stay within one bit, so the stated equivalence cannot quietly stop
+  being true.
+
+
 2.0.7 (2026-08-22) — nine-character codes (train 0007)
 -------------------------------------------------------
 

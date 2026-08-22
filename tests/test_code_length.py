@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The length of a freshly minted code (train 0007).
+"""The length of a freshly minted code (trains 0007 and 0008).
 
 External audit 2026-08-22, finding C-14: seven characters is roughly
 41.7 bits. Fine while a short code is public by nature; thin the moment
@@ -32,15 +32,15 @@ def _read(path):
 
 # -- the floor -------------------------------------------------------------
 
-def test_the_default_length_is_at_least_nine():
+def test_the_default_length_is_at_least_eleven():
     """A ratchet, not an equality: raising it later must not fail here,
-    lowering it must."""
-    assert AppSettings.code_length >= 9
+    lowering it must. Eleven is the YouTube identifier length."""
+    assert AppSettings.code_length >= 11
 
 
 def test_the_entropy_is_worth_stating():
     bits = AppSettings.code_length * math.log2(len(codec.ALPHABET))
-    assert bits >= 53, "%0.1f bits is below the floor this train set" % bits
+    assert bits >= 65, "%0.1f bits is below the floor this train set" % bits
 
 
 def test_a_blind_probe_is_hopeless_at_a_realistic_corpus_size():
@@ -49,7 +49,7 @@ def test_a_blind_probe_is_hopeless_at_a_realistic_corpus_size():
     hit per 3.5 million probes — a patient scraper's afternoon."""
     stored = 1_000_000
     probes_per_hit = len(codec.ALPHABET) ** AppSettings.code_length / stored
-    assert probes_per_hit > 1e9
+    assert probes_per_hit > 1e12
 
 
 @pytest.mark.parametrize("path", ["production.ini", "development.ini"])
@@ -86,6 +86,15 @@ def test_the_length_is_still_configurable_downwards(dbsession):
 
 def test_the_new_length_is_within_the_codec_bounds():
     assert codec.MIN_CODE_LENGTH <= AppSettings.code_length <= codec.MAX_CODE_LENGTH
+
+
+def test_the_length_matches_a_youtube_identifier():
+    """`youtu.be/dQw4w9WgXcQ` — eleven characters. Their alphabet has
+    64 symbols and ours 62, so the two are within half a bit."""
+    assert AppSettings.code_length == len("dQw4w9WgXcQ")
+    ours = AppSettings.code_length * math.log2(len(codec.ALPHABET))
+    theirs = 11 * math.log2(64)
+    assert abs(ours - theirs) < 1
 
 
 # -- nothing that exists breaks -------------------------------------------

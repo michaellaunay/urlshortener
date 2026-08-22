@@ -59,16 +59,22 @@ garde pour un service purement interne.
 paresseuse qui lève sur `:99999` ou `:abc` ; la lire tardivement
 transformait une saisie fautive en 500.
 
-**Codes** : tirés de `secrets`, **neuf caractères** par défaut, soit
-62⁹ ≈ 1,4 × 10¹⁶ possibilités (53,6 bits). Collisions gérées par
-SAVEPOINT et nouveau tirage.
+**Codes** : tirés de `secrets`, **onze caractères** par défaut — la
+longueur d'un identifiant YouTube (`youtu.be/dQw4w9WgXcQ`). Soit
+62¹¹ ≈ 5,2 × 10¹⁹ possibilités, 65,5 bits ; leur alphabet compte 64
+symboles et le nôtre 62, les deux tiennent donc dans un demi-bit l'un de
+l'autre. Collisions gérées par SAVEPOINT et nouveau tirage.
 
 Le chiffre qui compte n'est pas le taux de collision — la reprise les
-absorbe — mais le taux de succès d'un tirage à l'aveugle, qui vaut
-`liens_stockés / 62^longueur`. À sept caractères et un million de liens,
-c'était une trouvaille tous les 3,5 millions d'essais : l'après-midi
-d'un moissonneur patient. À neuf, c'est une tous les 13 milliards. Le
-coût est de deux caractères ; YouTube en utilise onze.
+absorbe, et ce n'a jamais été la contrainte — mais le taux de succès
+d'un tirage à l'aveugle, `liens_stockés / 62^longueur`. Avec un million
+de liens en base :
+
+| Longueur | Un succès tous les… |
+| --- | --- |
+| 7 | 3,5 millions d'essais — l'après-midi d'un moissonneur patient |
+| 9 | 13 milliards d'essais |
+| **11** | **52 000 milliards d'essais** |
 
 La longueur ne gouverne que les codes **frappés**. Tout code légal reste
 résoluble quelle que soit sa taille — le corpus de 2016 commence à un

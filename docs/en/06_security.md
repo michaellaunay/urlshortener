@@ -59,15 +59,21 @@ purely internal service.
 `parts.port` is a lazy property that raises on `:99999` or `:abc`;
 reading it late turned a typo into a 500.
 
-**Codes**: drawn from `secrets`, **nine characters** by default, so
-62⁹ ≈ 1.4 × 10¹⁶ possibilities (53.6 bits). Collisions are handled with
-a SAVEPOINT and a fresh draw.
+**Codes**: drawn from `secrets`, **eleven characters** by default — the
+length of a YouTube identifier (`youtu.be/dQw4w9WgXcQ`). That is
+62¹¹ ≈ 5.2 × 10¹⁹ possibilities, 65.5 bits; their alphabet has 64
+symbols and ours 62, so the two sit within half a bit of each other.
+Collisions are handled with a SAVEPOINT and a fresh draw.
 
 The number that matters is not the collision rate — retrying absorbs
-those — but the hit rate of a blind probe, `stored / 62**length`. At
-seven characters with a million links that was one hit per 3.5 million
-probes: a patient scraper's afternoon. At nine it is one per 13
-billion. The cost is two characters; YouTube uses eleven.
+those, and it was never the constraint — but the hit rate of a blind
+probe, `stored / 62**length`. With a million links stored:
+
+| Length | One hit per… |
+| --- | --- |
+| 7 | 3.5 million probes — a patient scraper's afternoon |
+| 9 | 13 billion probes |
+| **11** | **52 trillion probes** |
 
 Length governs MINTED codes only. Every legal code stays resolvable
 whatever its size — the 2016 corpus starts at one character — so no

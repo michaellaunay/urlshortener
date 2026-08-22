@@ -106,7 +106,7 @@ matching environment variable. Precedence is
 | --- | --- | --- | --- |
 | `urlshortener.base_url` | `URLSHORTENER_BASE_URL` | `http://localhost:5123/` | **Public** prefix of the links, trailing slash included |
 | `sqlalchemy.url` | `SQLALCHEMY_URL` | SQLite file under `var/` | Database |
-| `urlshortener.code_length` | `URLSHORTENER_CODE_LENGTH` | `9` | Length of a fresh code |
+| `urlshortener.code_length` | `URLSHORTENER_CODE_LENGTH` | `11` | Length of a fresh code |
 | `urlshortener.max_url_length` | `URLSHORTENER_MAX_URL_LENGTH` | `2048` | Longest accepted target |
 | `urlshortener.max_body_bytes` | `URLSHORTENER_MAX_BODY_BYTES` | `16384` | Largest accepted request body (also caps waitress) |
 | `urlshortener.default_scheme` | `URLSHORTENER_DEFAULT_SCHEME` | `http` | Scheme added when missing |

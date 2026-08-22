@@ -140,23 +140,24 @@ class AppSettings:
     base_url: str = "http://localhost:5123/"
     #: Length of a freshly generated code.
     #:
-    #: Raised from 7 to 9 on 2026-08-22, after the external audit
-    #: observed that a short code is treated as a secret by whoever
-    #: pastes it, whatever the service promises. The number that
-    #: matters is not the collision rate -- the retry loop absorbs
-    #: those -- but the hit rate of a blind probe, which is
-    #: `stored_links / 62**length`:
+    #: Eleven characters, the same as a YouTube video identifier --
+    #: `youtu.be/dQw4w9WgXcQ`. Their alphabet has 64 symbols and ours
+    #: 62, so the two are within half a bit of each other: 66.0 against
+    #: 65.5. Nobody has ever found a YouTube link too long to paste.
     #:
-    #:     length 7, one million links: one hit per ~3.5 million probes
-    #:     length 9, one million links: one hit per ~13 BILLION probes
+    #: Raised 7 -> 9 -> 11 on 2026-08-22. The number that justifies it
+    #: is not the collision rate -- the retry loop absorbs those, and it
+    #: was never the constraint -- but the hit rate of a blind probe,
+    #: `stored_links / 62**length`. With a million links stored:
     #:
-    #: The first is within reach of a patient scraper; the second is
-    #: not. The cost is two characters. YouTube uses eleven.
+    #:     length  7: one hit per 3.5 million probes   (a scraper's afternoon)
+    #:     length  9: one hit per 13 billion probes
+    #:     length 11: one hit per 52 TRILLION probes
     #:
     #: Existing shorter codes keep working: length applies to codes
     #: being MINTED, and every legal code is resolvable whatever its
     #: length -- the 2016 corpus starts at one character.
-    code_length: int = 9
+    code_length: int = 11
     #: How many times a collision is retried before giving up.
     code_max_attempts: int = 8
     #: Longest accepted target URL.
