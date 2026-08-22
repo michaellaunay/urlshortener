@@ -68,6 +68,18 @@ d'hameçonnage), `X-Content-Type-Options`, `X-Frame-Options`,
 `Referrer-Policy: no-referrer` sur la redirection, `Cache-Control:
 no-store` pour qu'un lien reste révocable.
 
+**Sélecteur de langue** : le paramètre `came_from` n'est jamais renvoyé
+tel quel. Il est mis en correspondance avec une **route nommée** de
+l'application, et l'adresse de retour est **reconstruite** par Pyramid à
+partir du nom de cette route. Quoi que le visiteur envoie, la réponse ne
+peut être qu'une URL que l'application sait fabriquer. Filtrer la chaîne
+était un jeu perdu d'avance : l'audit externe a montré que
+`/\evil.example` passait la garde précédente, et le standard URL impose
+au navigateur de lire l'antislash comme un séparateur. La route
+`/{code}` est explicitement exclue de la liste : elle correspond à
+tout, et « revenir » sur un lien court après un changement de langue
+ferait quitter le site.
+
 **CORS** : rien par défaut, liste explicite sinon.
 
 **Chaîne d'approvisionnement** : trois verrous hachés, installation en

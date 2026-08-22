@@ -197,3 +197,100 @@ def test_canonical_host_compresses_an_ipv6_literal():
     value, address = canonical_host("2001:0db8:0000:0000:0000:0000:0000:0001")
     assert value == "[2001:db8::1]"
     assert address is not None
+
+
+# -- C-01 -- the language switcher is not a redirector --------------------
+
+OPEN_REDIRECT_ATTEMPTS = [
+    r"/\evil.example",          # WHATWG reads the backslash as a separator
+    r"/\/evil.example",
+    r"/\\evil.example",
+    "//evil.example",
+    "///evil.example",
+    "https://evil.example/",
+    "http:evil.example",
+    "//evil.example/%2e%2e",
+    r"\\evil.example",
+    "javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "/%5Cevil.example",         # arrives decoded as /\evil.example
+    "/..//evil.example",
+    "/\tevil.example",
+    "/\r\nLocation: https://evil.example/",
+    "/nosuch1",                 # a real path, but not a returnable route
+    "/api/v1/links/abc",        # a real route, not a page
+    "/healthz",                 # a real route, not a page
+    "",
+]
+
+
+@pytest.mark.parametrize("attempt", OPEN_REDIRECT_ATTEMPTS)
+def test_c01_the_switcher_never_leaves_the_site(testapp, attempt):
+    response = testapp.get("/locale/fr", params={"came_from": attempt}, status=303)
+    location = response.headers["Location"]
+    assert "evil.example" not in location
+    assert location.endswith("/")
+    # Nothing the caller sent survives into the answer.
+    assert "\\" not in location and "\r" not in location and "\n" not in location
+
+
+def test_c01_the_backslash_case_specifically(testapp):
+    """The one the string filter let through: it starts with '/' and
+    does not start with '//', so the old guard was happy."""
+    old_guard_would_accept = (
+        "/\\evil.example".startswith("/") and not "/\\evil.example".startswith("//")
+    )
+    assert old_guard_would_accept, "the old guard really did accept this"
+    response = testapp.get("/locale/fr", params={"came_from": "/\\evil.example"}, status=303)
+    assert response.headers["Location"].endswith("/")
+
+
+def test_c01_a_legitimate_return_still_works(testapp):
+    response = testapp.get("/locale/fr", params={"came_from": "/"}, status=303)
+    assert response.headers["Location"].endswith("/")
+    assert "_LOCALE_=fr" in response.headers["Set-Cookie"]
+    assert "Transformez une adresse longue" in testapp.get("/").text
+
+
+def test_c01_the_answer_is_regenerated_not_echoed():
+    """The location is built by route_path from a matched route name,
+    so no character the caller supplied can reach it."""
+    from pyramid import testing
+
+    from urlshortener.views import safe_return_path
+
+    config = testing.setUp()
+    config.include("urlshortener.routes")
+    try:
+        request = testing.DummyRequest()
+        request.registry = config.registry
+        assert safe_return_path(request, "/") == "/"
+        assert safe_return_path(request, "/?x=1#frag") == "/"
+        assert safe_return_path(request, None) == "/"
+    finally:
+        testing.tearDown()
+
+
+def test_c01_every_route_is_either_returnable_or_explicitly_refused():
+    """A new route must not silently inherit a default. Either it is a
+    page one can come back to, or the reason it is not is written down."""
+    from pyramid.config import Configurator
+
+    from urlshortener.views import NON_RETURNABLE_ROUTES, RETURNABLE_ROUTES
+
+    config = Configurator()
+    config.include("urlshortener.routes")
+    config.commit()
+    names = {route.name for route in config.get_routes_mapper().get_routes()}
+    decided = RETURNABLE_ROUTES | set(NON_RETURNABLE_ROUTES)
+    assert names <= decided, "undecided routes: %s" % sorted(names - decided)
+    assert not (RETURNABLE_ROUTES & set(NON_RETURNABLE_ROUTES))
+
+
+def test_c01_the_catch_all_redirect_is_never_returnable():
+    from urlshortener.views import RETURNABLE_ROUTES
+
+    assert "redirect" not in RETURNABLE_ROUTES, (
+        "/{code} matches everything; returning to it would walk the "
+        "visitor off the site under our own domain"
+    )
