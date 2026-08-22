@@ -157,3 +157,7 @@ msgstr "No short code is available. Contact the administrator."
 msgid "error_rate_limited"
 msgstr "Too many links created from here. Try again shortly."
 
+#. Default: That request is too large.
+#: urlshortener/views.py
+msgid "error_body_too_large"
+msgstr "That request is too large."

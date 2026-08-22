@@ -157,3 +157,7 @@ msgstr ""
 msgid "error_rate_limited"
 msgstr ""
 
+#. Default: That request is too large.
+#: urlshortener/views.py
+msgid "error_body_too_large"
+msgstr ""

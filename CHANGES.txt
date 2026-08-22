@@ -1,6 +1,31 @@
 Changelog
 =========
 
+2.0.5 (2026-08-22) — request-body limits (external audit, train 0005)
+----------------------------------------------------------------------
+
+- **C-04 (high if exposed, fixed)** ``urlshortener.max_url_length``
+  capped the URL at 2 KiB and nothing capped the envelope carrying it.
+  Waitress leaves ``max_request_body_size`` at its default of **1 GiB**,
+  and the compose service is declared ``mem_limit: 512m`` — on paper the
+  application accepted a body twice the size of the memory it runs in.
+
+  Capped at 16 KiB in three tiers, driven by ONE value
+  (``URLSHORTENER_MAX_BODY_BYTES``) so they cannot drift: waitress
+  (``max_request_body_size``, plus ``max_request_header_size`` at
+  32 KiB), the application (``urlshortener.max_body_bytes``), and
+  ``client_max_body_size`` in the nginx recipe. A test fails when the
+  server and the application disagree.
+
+  The application check reads ``Content-Length`` and never touches the
+  body — reading a body to discover it is too large IS the denial of
+  service — and runs BEFORE the throttle on both creation endpoints, so
+  refusing an oversized request costs neither a parse nor a rate-limit
+  slot. A request declaring no length (chunked) is left to the server's
+  own limit rather than judged on nothing. New ``error_body_too_large``,
+  translated into the four languages.
+
+
 2.0.4 (2026-08-22) — deployment (external audit, train 0004)
 -------------------------------------------------------------
 

@@ -62,6 +62,9 @@ ERROR_MESSAGES = {
     "error_code_exhausted": _(
         "error_code_exhausted", default="No short code is available. Contact the administrator."
     ),
+    "error_body_too_large": _(
+        "error_body_too_large", default="That request is too large."
+    ),
     "error_rate_limited": _(
         "error_rate_limited", default="Too many links created from here. Try again shortly."
     ),
@@ -169,6 +172,23 @@ def _page_context(request, with_count=True, **extra):
     return context
 
 
+def body_too_large(request) -> bool:
+    """True when the declared request body exceeds `max_body_bytes`.
+
+    Read from `Content-Length`, NOT by measuring `request.body`:
+    reading a body in order to discover that it is too big IS the
+    denial of service (external audit C-04). A request that declares no
+    length -- chunked transfer -- is let through here and stopped by
+    the server's own `max_request_body_size`, which carries the same
+    number.
+    """
+    limit = request.app_settings.max_body_bytes
+    if limit <= 0:
+        return False
+    declared = request.content_length
+    return declared is not None and declared > limit
+
+
 def _client_key(request) -> str:
     """Throttling key. `client_addr` honours the trusted-proxy config."""
     return request.client_addr or "unknown"
@@ -220,6 +240,10 @@ def _legacy_get_json(request, raw_url):
 @view_config(route_name="home", request_method="POST", renderer="templates/home.pt")
 def shorten_form(request):
     """`POST /` from the page's own form."""
+    # First, and before `request.POST` parses anything.
+    if body_too_large(request):
+        request.response.status_int = 413
+        return _page_context(request, error=ERROR_MESSAGES["error_body_too_large"])
     raw_url = request.POST.get("url", "")
     if not request.throttle.allow(_client_key(request)):
         request.response.status_int = 429

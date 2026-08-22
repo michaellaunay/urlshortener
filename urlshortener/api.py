@@ -20,6 +20,7 @@ import logging
 from pyramid.view import view_config
 
 from .services import CodeExhausted, create_link, find_by_code
+from .views import body_too_large
 from .urlvalidation import InvalidURL
 
 log = logging.getLogger(__name__)
@@ -48,6 +49,12 @@ def _error(request, status, identifier, message, **extra):
 @view_config(route_name="api_shorten", request_method="POST", renderer="json")
 def api_shorten(request):
     """Create (or find) a short link for a target URL."""
+    # BEFORE the throttle, and long before `request.body` is touched:
+    # an oversized body must cost nothing to refuse (external audit
+    # C-04).
+    if body_too_large(request):
+        return _error(request, 413, "error_body_too_large", "That request is too large.")
+
     if not request.throttle.allow(request.client_addr or "unknown"):
         return _error(request, 429, "error_rate_limited", "Too many requests.")
 

@@ -80,6 +80,17 @@ au navigateur de lire l'antislash comme un séparateur. La route
 tout, et « revenir » sur un lien court après un changement de langue
 ferait quitter le site.
 
+**Taille du corps** : plafonnée à 16 Ko. `max_url_length` limitait
+l'URL à 2 Ko, rien ne limitait l'enveloppe qui la transporte, et
+waitress accepte 1 Gio par défaut — dans un conteneur déclaré à 512 Mo
+de mémoire. Le contrôle applicatif lit `Content-Length` et **ne touche
+jamais au corps** : lire un corps pour découvrir qu'il est trop gros,
+c'est le déni de service lui-même. Une requête qui ne déclare pas de
+longueur (transfert par morceaux) est arrêtée par le serveur, qui porte
+le même nombre. Un seul réglage,
+`URLSHORTENER_MAX_BODY_BYTES`, alimente les trois étages — nginx,
+waitress, application — et un test échoue s'ils divergent.
+
 **CORS** : rien par défaut, liste explicite sinon.
 
 **Chaîne d'approvisionnement** : trois verrous hachés, installation en

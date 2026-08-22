@@ -157,3 +157,7 @@ msgstr "Es ist kein Kurzcode verfügbar. Wenden Sie sich an die Verwaltung."
 msgid "error_rate_limited"
 msgstr "Zu viele Links von hier aus erstellt. Versuchen Sie es gleich noch einmal."
 
+#. Default: That request is too large.
+#: urlshortener/views.py
+msgid "error_body_too_large"
+msgstr "Diese Anfrage ist zu groß."

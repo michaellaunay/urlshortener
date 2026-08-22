@@ -157,3 +157,7 @@ msgstr "Aucun code court disponible. Contactez l'administrateur."
 msgid "error_rate_limited"
 msgstr "Trop de liens créés depuis cette adresse. Réessayez dans un moment."
 
+#. Default: That request is too large.
+#: urlshortener/views.py
+msgid "error_body_too_large"
+msgstr "Cette requête est trop volumineuse."

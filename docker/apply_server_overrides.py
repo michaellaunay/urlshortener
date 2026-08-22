@@ -31,6 +31,9 @@ OVERRIDES = {
     "URLSHORTENER_LISTEN": ("server:main", "listen"),
     "URLSHORTENER_TRUSTED_PROXY": ("server:main", "trusted_proxy"),
     "URLSHORTENER_TRUSTED_PROXY_COUNT": ("server:main", "trusted_proxy_count"),
+    # The SAME variable the application reads as `max_body_bytes`, so
+    # the server limit and the application limit cannot drift apart.
+    "URLSHORTENER_MAX_BODY_BYTES": ("server:main", "max_request_body_size"),
     "SQLALCHEMY_URL": ("app:main", "sqlalchemy.url"),
 }
 

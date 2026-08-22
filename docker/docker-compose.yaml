@@ -65,6 +65,11 @@ services:
       URLSHORTENER_TRUSTED_PROXY: ${URLSHORTENER_TRUSTED_PROXY:-}
       URLSHORTENER_TRUSTED_PROXY_COUNT: ${URLSHORTENER_TRUSTED_PROXY_COUNT:-1}
 
+      # Caps the request body in waitress AND in the application, from
+      # one value. Waitress's own default is 1 GiB, in a container
+      # capped at 512 MB.
+      URLSHORTENER_MAX_BODY_BYTES: ${URLSHORTENER_MAX_BODY_BYTES:-16384}
+
     # Published on the loopback interface only: the reverse proxy in
     # front (nginx, Apache) is what faces the network. Binding
     # 0.0.0.0:5123 would expose the service directly, which is exactly

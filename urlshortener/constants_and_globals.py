@@ -144,6 +144,24 @@ class AppSettings:
     code_max_attempts: int = 8
     #: Longest accepted target URL.
     max_url_length: int = 2048
+    #: Longest accepted REQUEST BODY, in bytes.
+    #:
+    #: EXTERNAL AUDIT 2026-08-22, finding C-04. `max_url_length` caps
+    #: the URL at 2 KiB; nothing capped the envelope it arrives in.
+    #: Waitress defaults `max_request_body_size` to 1 GiB, inside a
+    #: container declared `mem_limit: 512m` -- on paper the application
+    #: accepted a body twice the size of the memory it runs in.
+    #:
+    #: ONE number drives three places, so they cannot drift: this
+    #: setting, `[server:main] max_request_body_size` (the same
+    #: environment variable feeds both, see
+    #: `docker/apply_server_overrides.py`), and `client_max_body_size`
+    #: in the nginx recipe. `tests/test_body_limits.py` checks that the
+    #: default here and the value in `production.ini` are equal.
+    #:
+    #: 0 disables the application-level check; the server's own limit
+    #: still applies.
+    max_body_bytes: int = 16384
     #: Scheme prepended when the submitted URL has none (2016 behaviour).
     default_scheme: str = "http"
     #: Accepted schemes. Anything else (javascript:, data:, file:...) is
@@ -200,6 +218,9 @@ class AppSettings:
             ),
             max_url_length=as_int(
                 get("max_url_length", "URLSHORTENER_MAX_URL_LENGTH"), cls.max_url_length
+            ),
+            max_body_bytes=as_int(
+                get("max_body_bytes", "URLSHORTENER_MAX_BODY_BYTES"), cls.max_body_bytes
             ),
             default_scheme=default_scheme or cls.default_scheme,
             allowed_schemes=allowed,

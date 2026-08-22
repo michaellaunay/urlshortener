@@ -78,6 +78,16 @@ Standard requires a browser to read the backslash as a separator. The
 everything, and "returning" to a short link after a language change
 would leave the site.
 
+**Body size**: capped at 16 KiB. `max_url_length` capped the URL at
+2 KiB, nothing capped the envelope carrying it, and waitress accepts
+1 GiB by default — inside a container declared with 512 MB of memory.
+The application-level check reads `Content-Length` and **never touches
+the body**: reading a body to discover it is too large is the denial of
+service. A request declaring no length (chunked transfer) is stopped by
+the server, which carries the same number. One setting,
+`URLSHORTENER_MAX_BODY_BYTES`, feeds all three tiers — nginx, waitress,
+application — and a test fails if they diverge.
+
 **CORS**: nothing by default, an explicit list otherwise.
 
 **Supply chain**: three hashed locks, installation with
