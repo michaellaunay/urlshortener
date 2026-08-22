@@ -21,10 +21,21 @@ from pyramid.httpexceptions import HTTPNoContent
 from pyramid.view import view_config
 
 from .services import CodeExhausted, create_link, find_by_code
-from .views import body_too_large
+from .views import body_too_large, cross_site_creation
 from .urlvalidation import InvalidURL
 
 log = logging.getLogger(__name__)
+
+
+def _is_json_request(request) -> bool:
+    """True when the caller declared a JSON body.
+
+    Checked on the declared type rather than by sniffing the body: what
+    matters is what the BROWSER was willing to send, and a browser only
+    skips the preflight for the three simple content types.
+    """
+    declared = (request.content_type or "").split(";", 1)[0].strip().lower()
+    return declared == "application/json" or declared.endswith("+json")
 
 
 def _link_json(request, link, created=None):
@@ -56,6 +67,34 @@ def api_shorten(request):
     if body_too_large(request):
         return _error(request, 413, "error_body_too_large", "That request is too large.")
 
+    # JSON ONLY, from here on (external audit, second pass, D-02).
+    #
+    # Train 0009 documented `curl -d url=...` as a convenience, and it
+    # was one — but `application/x-www-form-urlencoded` is a
+    # CORS-simple content type, so a form on any third-party page could
+    # post to this endpoint with no preflight, creating links at its
+    # visitors' addresses. `application/json` cannot be sent
+    # cross-origin without a preflight, and the preflight is where the
+    # origin list is enforced. Requiring JSON is therefore not a
+    # formality: it is what makes the CORS configuration mean
+    # something.
+    #
+    # This is a break in a v1 API I shipped and documented. It is one
+    # day old and has no known caller; the convenience is restored, for
+    # the same one-line curl, by sending a Content-Type.
+    if not _is_json_request(request):
+        return _error(
+            request, 415, "error_content_type_required",
+            "Send application/json. Form encodings are refused because they "
+            "can be posted cross-origin without a preflight.",
+        )
+
+    if cross_site_creation(request):
+        return _error(
+            request, 403, "error_cross_site",
+            "Cross-site creation is refused.",
+        )
+
     if not request.throttle.allow(request.client_addr or "unknown"):
         return _error(request, 429, "error_rate_limited", "Too many requests.")
 
@@ -66,10 +105,6 @@ def api_shorten(request):
     if not isinstance(body, dict):
         body = {}
     raw_url = body.get("url")
-    if raw_url is None:
-        # Accept a plain form post too: curl -d url=... is the shape
-        # every operator reaches for first.
-        raw_url = request.POST.get("url") or request.params.get("url")
 
     try:
         link, created = create_link(request.dbsession, raw_url, request.app_settings)

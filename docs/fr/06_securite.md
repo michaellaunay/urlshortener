@@ -117,6 +117,24 @@ le même nombre. Un seul réglage,
 `URLSHORTENER_MAX_BODY_BYTES`, alimente les trois étages — nginx,
 waitress, application — et un test échoue s'ils divergent.
 
+**Créations depuis un autre site** : refusées. Il n'y a ni session ni
+compte, donc pas de jeton CSRF à vérifier — la réponse sans session est
+`Sec-Fetch-Site`, que le navigateur pose lui-même et qu'une page ne peut
+ni retirer ni choisir. Un en-tête absent laisse passer : `curl` et tout
+client non-navigateur n'en envoient pas, et l'attaque vit précisément
+dans les navigateurs, qui l'envoient toujours.
+
+L'API exige `Content-Type: application/json`. Les encodages de
+formulaire sont des types « simples » au sens CORS : une page tierce
+peut les poster **sans préflight**, donc les accepter rendait la liste
+`cors_origins` décorative. Seule la création est gardée ; suivre un
+lien court depuis n'importe quel site reste l'usage normal.
+
+Limite connue et assumée : `GET /?url=` reste atteignable depuis une
+balise `<img>`, qu'aucun contrôle d'en-tête ne distingue d'une
+navigation légitime. Le fermer, c'est `enable_legacy_get = false`
+(chapitre 02).
+
 **CORS** : rien par défaut, liste explicite sinon.
 
 **Chaîne d'approvisionnement** : trois verrous hachés, installation en

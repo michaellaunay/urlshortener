@@ -161,3 +161,8 @@ msgstr "Too many links created from here. Try again shortly."
 #: urlshortener/views.py
 msgid "error_body_too_large"
 msgstr "That request is too large."
+
+#. Default: This form cannot be submitted from another website.
+#: urlshortener/views.py
+msgid "error_cross_site"
+msgstr "This form cannot be submitted from another website."

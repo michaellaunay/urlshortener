@@ -126,9 +126,22 @@ curl -X POST https://exemple.org/api/v1/shorten \
 ```
 
 `201` si le lien vient d'être créé, `200` si la cible était déjà connue
-(`created: false`). Un `POST` en `application/x-www-form-urlencoded`
-avec un champ `url` est également accepté : `curl -d url=...` est le
-premier geste de tout exploitant.
+(`created: false`).
+
+**`Content-Type: application/json` est obligatoire.** Un `POST` en
+`application/x-www-form-urlencoded` répond `415`. Ce n'est pas une
+formalité : les encodages de formulaire sont des types « simples » au
+sens CORS, donc une page tierce peut les poster **sans préflight** — et
+le préflight est justement l'endroit où la liste d'origines est
+appliquée. Exiger du JSON est ce qui donne un sens à
+`urlshortener.cors_origins`.
+
+Le `curl` d'une ligne reste d'une ligne :
+
+```bash
+curl -X POST https://exemple.org/api/v1/shorten \
+     -H 'Content-Type: application/json' -d '{"url":"https://exemple.org/x"}'
+```
 
 ### `GET /api/v1/links/{code}`
 
@@ -157,6 +170,8 @@ inaccessible se voit. C'est la sonde du `HEALTHCHECK` de l'image.
 | `error_url_private` | 400 | Adresse littérale privée, loopback ou lien-local |
 | `error_url_blocked` | 400 | Hôte de la liste noire |
 | `error_url_control_characters` | 400 | Caractères de contrôle |
+| `error_cross_site` | 403 | Création soumise depuis un autre site (`Sec-Fetch-Site`) |
+| `error_content_type_required` | 415 | API appelée sans `Content-Type: application/json` |
 | `error_body_too_large` | 413 | Corps de requête au-delà de `max_body_bytes` |
 | `error_rate_limited` | 429 | Limite de créations atteinte |
 | `error_code_exhausted` | 503 | Aucun code libre — augmenter `code_length` |

@@ -124,9 +124,21 @@ curl -X POST https://example.org/api/v1/shorten \
 ```
 
 `201` when the link was just created, `200` when the target was already
-known (`created: false`). A `POST` in
-`application/x-www-form-urlencoded` with a `url` field is accepted too:
-`curl -d url=...` is every operator's first move.
+known (`created: false`).
+
+**`Content-Type: application/json` is required.** A `POST` in
+`application/x-www-form-urlencoded` answers `415`. This is not a
+formality: form encodings are CORS-*simple* content types, so a
+third-party page can post them **with no preflight** — and the
+preflight is exactly where the origin list is enforced. Requiring JSON
+is what makes `urlshortener.cors_origins` mean something.
+
+The one-line curl stays one line:
+
+```bash
+curl -X POST https://example.org/api/v1/shorten \
+     -H 'Content-Type: application/json' -d '{"url":"https://example.org/x"}'
+```
 
 ### `GET /api/v1/links/{code}`
 
@@ -155,6 +167,8 @@ database shows. This is the image's `HEALTHCHECK` probe.
 | `error_url_private` | 400 | Literal private, loopback or link-local address |
 | `error_url_blocked` | 400 | Host on the block list |
 | `error_url_control_characters` | 400 | Control characters |
+| `error_cross_site` | 403 | Creation submitted from another site (`Sec-Fetch-Site`) |
+| `error_content_type_required` | 415 | API called without `Content-Type: application/json` |
 | `error_body_too_large` | 413 | Request body beyond `max_body_bytes` |
 | `error_rate_limited` | 429 | Creation limit reached |
 | `error_code_exhausted` | 503 | No free code — raise `code_length` |

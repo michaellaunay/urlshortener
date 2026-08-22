@@ -161,3 +161,8 @@ msgstr "Trop de liens créés depuis cette adresse. Réessayez dans un moment."
 #: urlshortener/views.py
 msgid "error_body_too_large"
 msgstr "Cette requête est trop volumineuse."
+
+#. Default: This form cannot be submitted from another website.
+#: urlshortener/views.py
+msgid "error_cross_site"
+msgstr "Ce formulaire ne peut pas être soumis depuis un autre site."

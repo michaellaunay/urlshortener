@@ -1,6 +1,43 @@
 Changelog
 =========
 
+2.0.13 (2026-08-22) — cross-site creation (train 0013)
+--------------------------------------------------------
+
+- **D-02 (medium, fixed)** A ``POST`` in
+  ``application/x-www-form-urlencoded`` is a CORS-SIMPLE request: a
+  browser sends it with no preflight and shows the answer to nobody. So
+  any third-party page could make its visitors create links, at THEIR
+  address — which also spreads the rate limit across strangers — and
+  the preflight added in train 0009 stood in front of none of it,
+  because a form never preflights.
+
+  There is no session here, so there is no CSRF token. ``Sec-Fetch-Site``
+  is the sessionless answer: the browser states where the request came
+  from, and a page can neither remove it nor choose its value. An absent
+  header passes, deliberately — ``curl`` and every non-browser client
+  send none, and refusing them would break far more than it protects.
+
+  **BREAKING, in a v1 API one day old**: ``POST /api/v1/shorten`` now
+  requires ``Content-Type: application/json`` and answers 415
+  otherwise. Train 0009 documented ``curl -d url=...`` as a
+  convenience, and it was one; but that content type is exactly what
+  lets a third-party page skip the preflight, and the preflight is
+  where ``cors_origins`` is enforced. Requiring JSON is what makes that
+  setting mean something. The one-line curl stays one line, with a
+  ``-H`` added.
+
+  The guard runs BEFORE the throttle, so a refused cross-site post
+  costs a visitor no rate-limit slot — a test pins the ordering rather
+  than asserting it.
+
+  Stated rather than left implicit: ``GET /?url=`` remains reachable
+  from an ``<img>`` tag, which no header check can distinguish from a
+  legitimate navigation. Closing it is ``enable_legacy_get = false``
+  (train 0010), a decision with a date rather than a patch. A test
+  records that it is still open.
+
+
 2.0.12 (2026-08-22) — browser-compatible IDNA (train 0012)
 -----------------------------------------------------------
 

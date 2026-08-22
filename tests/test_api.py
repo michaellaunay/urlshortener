@@ -20,8 +20,16 @@ def test_a_known_url_answers_200_and_created_false(testapp):
     assert response.json["created"] is False
 
 
-def test_form_encoded_post_is_accepted_too(testapp):
-    response = testapp.post("/api/v1/shorten", {"url": "https://example.org/c"})
+def test_a_form_encoded_post_is_refused(testapp):
+    """Reversed by train 0013. `application/x-www-form-urlencoded` is a
+    CORS-simple content type: a third-party page can post it with no
+    preflight, so accepting it made the origin list decorative."""
+    response = testapp.post("/api/v1/shorten", {"url": "https://example.org/c"}, status=415)
+    assert response.json["error"] == "error_content_type_required"
+
+
+def test_the_one_line_curl_still_works_with_a_content_type(testapp):
+    response = testapp.post_json("/api/v1/shorten", {"url": "https://example.org/c"})
     assert response.status_int == 201
 
 

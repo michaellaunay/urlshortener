@@ -65,6 +65,10 @@ ERROR_MESSAGES = {
     "error_body_too_large": _(
         "error_body_too_large", default="That request is too large."
     ),
+    "error_cross_site": _(
+        "error_cross_site",
+        default="This form cannot be submitted from another website.",
+    ),
     "error_rate_limited": _(
         "error_rate_limited", default="Too many links created from here. Try again shortly."
     ),
@@ -184,6 +188,42 @@ def _mark_deprecated(request) -> None:
     )
 
 
+#: `Sec-Fetch-Site` values a creation may arrive with.
+#:
+#: EXTERNAL AUDIT, second pass, finding D-02. A `POST` in
+#: `application/x-www-form-urlencoded` is a CORS-SIMPLE request: the
+#: browser sends it with no preflight and shows the answer to nobody.
+#: So any third-party page could make its visitors create links —
+#: at THEIR address, which also spreads the rate limit across
+#: strangers — and the preflight added in train 0009 stood in front of
+#: none of it, because a form never preflights.
+#:
+#: There is no session here, so there is no CSRF token to check.
+#: `Sec-Fetch-Site` is the sessionless answer: the browser states where
+#: the request came from, and a page cannot forge it.
+#:
+#: `none` is a typed address or a bookmark. `same-origin` is our own
+#: form. `same-site` covers a sibling host of the same registrable
+#: domain, which for a service mounted under a coop's domain is a
+#: legitimate caller.
+ALLOWED_FETCH_SITES = frozenset({"none", "same-origin", "same-site"})
+
+
+def cross_site_creation(request) -> bool:
+    """True when a form creation arrives from another site.
+
+    Fail-OPEN when the header is absent: `curl`, an old browser and
+    every non-browser client send nothing, and refusing them would
+    break far more than it protects. The header exists in every current
+    browser, which is exactly where the attack lives — a page can
+    neither remove it nor choose its value.
+    """
+    site = request.headers.get("Sec-Fetch-Site")
+    if not site:
+        return False
+    return site.strip().lower() not in ALLOWED_FETCH_SITES
+
+
 def body_too_large(request) -> bool:
     """True when the declared request body exceeds `max_body_bytes`.
 
@@ -284,7 +324,10 @@ def _legacy_get_json(request, raw_url):
 @view_config(route_name="home", request_method="POST", renderer="templates/home.pt")
 def shorten_form(request):
     """`POST /` from the page's own form."""
-    # First, and before `request.POST` parses anything.
+    if cross_site_creation(request):
+        request.response.status_int = 403
+        return _page_context(request, error=ERROR_MESSAGES["error_cross_site"])
+    # Before `request.POST` parses anything.
     if body_too_large(request):
         request.response.status_int = 413
         return _page_context(request, error=ERROR_MESSAGES["error_body_too_large"])

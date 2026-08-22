@@ -113,6 +113,23 @@ the server, which carries the same number. One setting,
 `URLSHORTENER_MAX_BODY_BYTES`, feeds all three tiers — nginx, waitress,
 application — and a test fails if they diverge.
 
+**Cross-site creation**: refused. There is no session and no account,
+so there is no CSRF token to check — the sessionless answer is
+`Sec-Fetch-Site`, which the browser sets itself and which a page can
+neither remove nor choose. An absent header passes: `curl` and every
+non-browser client send none, and the attack lives precisely in
+browsers, which always send it.
+
+The API requires `Content-Type: application/json`. Form encodings are
+CORS-*simple* content types: a third-party page can post them **with no
+preflight**, so accepting them made the `cors_origins` list decorative.
+Only creation is guarded; following a short link from any site remains
+the normal use.
+
+Known and accepted limit: `GET /?url=` is still reachable from an
+`<img>` tag, which no header check can tell from a legitimate
+navigation. Closing it is `enable_legacy_get = false` (chapter 02).
+
 **CORS**: nothing by default, an explicit list otherwise.
 
 **Supply chain**: three hashed locks, installation with
