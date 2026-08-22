@@ -34,7 +34,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-170 tests, 89% coverage. The three exact quality-CI commands — run
+410 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
@@ -107,6 +107,7 @@ matching environment variable. Precedence is
 | `urlshortener.base_url` | `URLSHORTENER_BASE_URL` | `http://localhost:5123/` | **Public** prefix of the links, trailing slash included |
 | `sqlalchemy.url` | `SQLALCHEMY_URL` | SQLite file under `var/` | Database |
 | `urlshortener.code_length` | `URLSHORTENER_CODE_LENGTH` | `11` | Length of a fresh code |
+| `urlshortener.code_max_attempts` | `URLSHORTENER_CODE_MAX_ATTEMPTS` | `8` | Draws before giving up on a collision |
 | `urlshortener.max_url_length` | `URLSHORTENER_MAX_URL_LENGTH` | `2048` | Longest accepted target |
 | `urlshortener.max_body_bytes` | `URLSHORTENER_MAX_BODY_BYTES` | `16384` | Largest accepted request body (also caps waitress) |
 | `urlshortener.default_scheme` | `URLSHORTENER_DEFAULT_SCHEME` | `http` | Scheme added when missing |
@@ -117,6 +118,7 @@ matching environment variable. Precedence is
 | `urlshortener.enable_legacy_get` | `URLSHORTENER_ENABLE_LEGACY_GET` | `true` | Serve `GET /?url=` (2016) |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Creations per window per address |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Window length |
+| `urlshortener.throttle_max_reads` | `URLSHORTENER_THROTTLE_MAX_READS` | `0` | API reads per window (0 = unlimited) |
 | `urlshortener.cors_origins` | `URLSHORTENER_CORS_ORIGINS` | empty | Origins allowed on the API |
 
 ### Start-up refuses an impossible configuration

@@ -151,14 +151,17 @@ inaccessible se voit. C'est la sonde du `HEALTHCHECK` de l'image.
 | `error_url_required` | 400 | Champ absent ou vide |
 | `error_url_too_long` | 400 | Au-delà de `max_url_length` |
 | `error_url_scheme` | 400 | Schéma hors liste (`javascript:`, `data:`, `file:`, `ftp:`…) |
-| `error_url_host` | 400 | Hôte absent ou syntaxiquement invalide |
+| `error_url_host` | 400 | Hôte absent, syntaxiquement invalide, ou à l'allure numérique sans être une adresse |
+| `error_url_port` | 400 | Numéro de port hors bornes ou non numérique |
 | `error_url_credentials` | 400 | Identifiants dans l'autorité (`https://banque@méchant.test/`) |
 | `error_url_private` | 400 | Adresse littérale privée, loopback ou lien-local |
 | `error_url_blocked` | 400 | Hôte de la liste noire |
 | `error_url_control_characters` | 400 | Caractères de contrôle |
+| `error_body_too_large` | 413 | Corps de requête au-delà de `max_body_bytes` |
 | `error_rate_limited` | 429 | Limite de créations atteinte |
 | `error_code_exhausted` | 503 | Aucun code libre — augmenter `code_length` |
 | `error_unknown_code` | 404 | Code inconnu (API v1) |
+| `error_legacy_get_disabled` | 410 | `GET /?url=` coupé par configuration |
 
 Ces identifiants sont aussi les `msgid` du catalogue de traduction :
 l'interface les affiche traduits, l'API les rend bruts.

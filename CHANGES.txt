@@ -1,6 +1,40 @@
 Changelog
 =========
 
+2.0.11 (2026-08-22) — documentation brought back in step (train 0011)
+----------------------------------------------------------------------
+
+Ten trains moved the code and left parts of the documentation behind.
+This one catches it up, and locks the parts that can be checked
+mechanically so they cannot drift again.
+
+- The external audit report is **filed** under ``docs/fr/audits/``,
+  with its provenance, a reserve (the auditor counted 127 tests where
+  the repository had 170, so they probably did not read this exact
+  tree — every finding was reproduced against the real code before
+  being fixed), and a table mapping each finding to the train that
+  answered it. Both security chapters and both indexes point at it.
+- **Missing from the tables, now added**: three error identifiers the
+  service returns and no chapter listed (``error_url_port``,
+  ``error_body_too_large``, ``error_legacy_get_disabled``), and two
+  settings (``code_max_attempts``, ``throttle_max_reads``).
+- **Figures that were remembered rather than measured**: "170 tests,
+  89% coverage" became 410 and 91%.
+- New ``tests/test_documentation.py``: every error identifier the code
+  can return is in both API tables and nothing is documented that the
+  code never returns; every settings field is in both installation
+  tables; the two trees carry the same chapters; every filed audit is
+  listed in its index; and the quoted test count is the measured one.
+- The audit reports are **French only**. Their English translation is
+  pending, and both audit indexes say so — an English reader learns it
+  from the index rather than from a dead link, and a test checks the
+  declaration is there.
+
+Prose is deliberately not tested: a test can tell whether an
+identifier, a file or a chapter has gone missing, not whether a
+paragraph is still true.
+
+
 2.0.10 (2026-08-22) — a way out for GET /?url= (train 0010)
 ------------------------------------------------------------
 

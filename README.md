@@ -31,7 +31,7 @@ docker compose --env-file docker/.env -f docker/docker-compose.yaml up -d --buil
 ```bash
 # legacy entry point, unchanged since 2016
 curl 'http://localhost:5123/?url=https://example.org/a/long/page'
-# {"short_url": "http://localhost:5123/k3Bq7xZ", "code": "SUCCESS", ...}
+# {"short_url": "http://localhost:5123/h6QStqWsRk3", "code": "SUCCESS", ...}
 
 # JSON API v1
 curl -X POST http://localhost:5123/api/v1/shorten \
@@ -39,7 +39,7 @@ curl -X POST http://localhost:5123/api/v1/shorten \
      -d '{"url": "https://example.org/a/long/page"}'
 
 # follow it
-curl -I http://localhost:5123/k3Bq7xZ     # 302 -> https://example.org/a/long/page
+curl -I http://localhost:5123/h6QStqWsRk3   # 302 -> https://example.org/a/long/page
 ```
 
 ## What is here
@@ -47,17 +47,22 @@ curl -I http://localhost:5123/k3Bq7xZ     # 302 -> https://example.org/a/long/pa
 - **Compatible** with the 2016 clients, including KuneAgi's
   `/urlmetadata/` mount point. One deliberate change: an unknown code
   answers 404 instead of 200.
-- **Safe by construction**: parameterised SQL, scheme allowlist, no
-  credentials in the authority, private addresses refused, unpredictable
-  codes, CSP and `Referrer-Policy`, no third-party CDN, no IP address
-  stored.
+- **Safe by construction**: parameterised SQL, one canonical spelling of
+  the host before every check, scheme allowlist, no credentials in the
+  authority, private addresses refused in all four of their notations,
+  eleven-character unpredictable codes, request bodies capped in three
+  tiers, CSP and `Referrer-Policy`, no third-party CDN, no IP address
+  stored. Start-up refuses a configuration that cannot work.
 - **English, French, German, Spanish**, with one locale registry and
   the remaining EU official languages declared and one boolean away.
 - **Operable**: digest-pinned multi-stage image, hash-checked
   dependency locks, non-root, health check, backup script, schema
   upgrade steps.
-- **Tested**: 170 tests, 89% coverage, three CI workflows (unit,
+- **Tested**: 410 tests, 91% coverage, three CI workflows (unit,
   quality, container smoke).
+- **Audited**: one internal pass and one external pass, both filed
+  under `docs/fr/audits/`, every fixable finding fixed with a
+  regression test of its own.
 
 ## Documentation
 
@@ -65,7 +70,8 @@ Bilingual, in [`docs/fr`](docs/fr/00_index.md) and
 [`docs/en`](docs/en/00_index.md):
 
 installation · API and routes · internationalisation · Docker and
-operations · migrating from 2016 · security · the Keycloak SSO roadmap.
+operations · migrating from 2016 · security · the Keycloak SSO roadmap
+· the audit reports.
 
 `CHANGES.txt` lists every difference from the 2016 service, deliberate
 breaks included.

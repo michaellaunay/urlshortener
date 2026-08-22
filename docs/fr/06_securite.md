@@ -158,11 +158,27 @@ production.
 
 ## Audits
 
-- [22 août 2026 — audit interne](audits/20260822_audit_securite_interne.md) :
-  une découverte haute (S-01, cible non-ASCII servie brute dans
+Versés sous [`docs/fr/audits/`](audits/README.md), datés et
+autoportants.
+
+- **[22 août 2026 — audit interne](audits/20260822_audit_securite_interne.md)**
+  : une découverte haute (S-01, cible non-ASCII servie brute dans
   `Location:` — 500 permanent ou redirection mutilée), trois moyennes,
-  six basses, quatre risques assumés. Toutes les découvertes
-  corrigeables l'ont été, avec un test de non-régression chacune.
+  six basses, quatre risques assumés.
+- **[22 août 2026 — audit externe](audits/20260822_audit_externe_chatgpt.md)**
+  : quatre P0, quatre P1, cinq P2. Il a trouvé trois choses que l'audit
+  interne n'avait pas vues, et elles se ressemblent — ce sont toutes des
+  **canonicalisations manquantes** : quatre écritures d'une IPv4, deux
+  orthographes d'un nom international, un antislash lu comme un
+  séparateur. Corrigées par les trains 0002 à 0010.
+
+Chaque découverte corrigeable l'a été avec son propre test de
+non-régression, démonstration rouge/vert faite train par train.
+
+Restent ouverts : l'API de consultation bavarde (risque accepté), la
+redirection ouverte par nature sans écran d'avertissement, `read_only`
+sur le conteneur à valider, et l'exception `pip-audit` sur setuptools
+que le pin de pyramid rend inlevable.
 
 ## Signaler une faille
 

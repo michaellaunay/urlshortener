@@ -149,14 +149,17 @@ database shows. This is the image's `HEALTHCHECK` probe.
 | `error_url_required` | 400 | Field absent or empty |
 | `error_url_too_long` | 400 | Beyond `max_url_length` |
 | `error_url_scheme` | 400 | Scheme outside the allowlist (`javascript:`, `data:`, `file:`, `ftp:`…) |
-| `error_url_host` | 400 | Host absent or syntactically invalid |
+| `error_url_host` | 400 | Host absent, syntactically invalid, or numeric-looking without being an address |
+| `error_url_port` | 400 | Port out of range or not a number |
 | `error_url_credentials` | 400 | Credentials in the authority (`https://bank@evil.test/`) |
 | `error_url_private` | 400 | Literal private, loopback or link-local address |
 | `error_url_blocked` | 400 | Host on the block list |
 | `error_url_control_characters` | 400 | Control characters |
+| `error_body_too_large` | 413 | Request body beyond `max_body_bytes` |
 | `error_rate_limited` | 429 | Creation limit reached |
 | `error_code_exhausted` | 503 | No free code — raise `code_length` |
 | `error_unknown_code` | 404 | Unknown code (API v1) |
+| `error_legacy_get_disabled` | 410 | `GET /?url=` switched off by configuration |
 
 These identifiers are also the `msgid` values of the translation
 catalogue: the interface shows them translated, the API returns them

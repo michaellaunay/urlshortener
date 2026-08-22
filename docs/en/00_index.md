@@ -17,7 +17,7 @@ which are mirrors: a change to one calls for a change to the other.
 | [05 — Migrating from 2016](05_migration.md) | Taking over `var/urls.db`, wiring KuneAgi |
 | [06 — Security](06_security.md) | What is checked, and what is not |
 | [07 — Keycloak SSO (planned)](07_sso_keycloak.md) | Roadmap for the next iteration |
-| [Audits](audits/) | Security audits, dated and self-contained |
+| [Audits](audits/README.md) | Security audits, dated and self-contained — one internal, one external |
 
 ## In three sentences
 
