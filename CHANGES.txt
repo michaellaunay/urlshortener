@@ -1,6 +1,42 @@
 Changelog
 =========
 
+2.0.16 (2026-08-22) — the step that was missing twice (train 0016)
+--------------------------------------------------------------------
+
+Documentation only; no behaviour changes.
+
+- **The README now carries the patch workflow.** Changes are delivered
+  as numbered patches, and a patch can add a dependency; the reinstall
+  step lived only in the installation chapter, which is not the page
+  someone opens after `git apply`. It was missed on two consecutive
+  deliveries — ``idna`` in train 0012, ``PyYAML`` in train 0014 — with
+  two different symptoms: three named failures the second time, and
+  pytest's entire collection collapsing the first, because the import
+  sat at module level rather than inside the test.
+
+  The workflow also shows ``git apply --check``, which answers yes or
+  no and changes nothing. Used before each train it would have settled
+  in one command whether a patch was already applied.
+
+- **Both installation chapters warn about the activation order.** A
+  ``pip install`` run before ``. .venv/bin/activate`` answers
+  ``externally-managed-environment`` on Debian and Ubuntu (PEP 668) and
+  suggests ``--break-system-packages`` — a suggestion that installs
+  into the system python. Activating is the right answer, and the
+  chapters now say so at the point where the mistake is made.
+
+- Two locks: the README must carry both the apply and the reinstall
+  step, close enough together to read as one procedure, and both
+  chapters must mention the PEP 668 message by name so a reader who
+  hits it can search for it.
+
+No test can check what is installed in a reader's virtualenv. The suite
+checks that a new dependency is declared and locked; the rest is a
+procedure, and a procedure that lives in the wrong file is a procedure
+nobody follows.
+
+
 2.0.15 (2026-08-22) — the second audit, filed (train 0015)
 ------------------------------------------------------------
 

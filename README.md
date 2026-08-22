@@ -26,6 +26,26 @@ With Docker:
 docker compose --env-file docker/.env -f docker/docker-compose.yaml up -d --build
 ```
 
+## Applying a patch
+
+Changes are delivered as patches applied with `git apply`, in numbered
+order. **A patch can add a dependency**, so reinstall whenever the
+`git apply` touched a `requirements*.lock`:
+
+```bash
+git apply --check 00NN-....patch      # says yes or no, changes nothing
+git apply 00NN-....patch
+git status --short                    # did a lock change?
+pip install --require-hashes -r requirements-test.lock
+python -m pytest -q
+```
+
+Skipping the reinstall gives a `ModuleNotFoundError`. Depending on
+where the import sits, that is either three named failures or pytest's
+whole collection collapsing before a single test can report anything
+useful. No test can check what is installed in your virtualenv — the
+suite only checks that a new dependency is declared and locked.
+
 ## Using it
 
 ```bash
@@ -58,7 +78,7 @@ curl -I http://localhost:5123/h6QStqWsRk3   # 302 -> https://example.org/a/long/
 - **Operable**: digest-pinned multi-stage image, hash-checked
   dependency locks, non-root, health check, backup script, schema
   upgrade steps.
-- **Tested**: 482 tests, 91% coverage, three CI workflows (unit,
+- **Tested**: 484 tests, 91% coverage, three CI workflows (unit,
   quality, container smoke).
 - **Audited**: one internal pass and one external pass, both filed
   under `docs/fr/audits/`, every fixable finding fixed with a

@@ -12,7 +12,7 @@ suffit.
 git clone https://github.com/michaellaunay/urlshortener.git
 cd urlshortener
 python3 -m venv .venv
-. .venv/bin/activate
+. .venv/bin/activate          # AVANT le premier pip, voir ci-dessous
 
 pip install --require-hashes -r requirements-test.lock
 pip install --no-deps -e .
@@ -27,6 +27,12 @@ Le service écoute sur <http://localhost:5123/>.
 seulement trois : les gabarits sont rechargés à chaud, les journaux sont
 en DEBUG, et le refus des cibles privées est **désactivé** pour pouvoir
 raccourcir `http://localhost:8080/` pendant un développement.
+
+Sur Debian et Ubuntu, un `pip install` lancé **avant** l'activation
+répond `externally-managed-environment` (PEP 668) et suggère
+`--break-system-packages`. Ne pas suivre cette suggestion : elle
+installerait dans le python du système. Activer le venv est la bonne
+réponse ; l'invite passe alors à `(.venv)`.
 
 ### Après un correctif qui touche aux verrous
 
@@ -54,7 +60,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-482 tests, 91 % de couverture. Les trois commandes exactes de la CI
+484 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash

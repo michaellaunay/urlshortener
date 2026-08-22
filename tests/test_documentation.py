@@ -140,6 +140,31 @@ def test_every_audit_report_is_listed_in_its_index():
     assert reports, "the audits directory is empty"
 
 
+def test_the_patch_workflow_is_where_a_patch_recipient_looks():
+    """The reinstall step lived only in the installation chapter, and
+    was missed twice in a row on real deliveries — once for `idna`,
+    once for `PyYAML`. The README is the first page anyone opens."""
+    body = _read(ROOT, "README.md")
+    assert "git apply" in body
+    assert "requirements-test.lock" in body
+    apply_at = body.index("git apply")
+    reinstall_at = body.index("pip install --require-hashes", apply_at)
+    assert reinstall_at - apply_at < 800, (
+        "the reinstall step is too far from the apply step to be read as "
+        "part of it"
+    )
+
+
+def test_both_installation_chapters_warn_about_the_activation_order():
+    """A pip run before activation answers `externally-managed-
+    environment` on Debian and Ubuntu and suggests a flag that installs
+    into the system python."""
+    for chapter in ("fr/01_installation.md", "en/01_installation.md"):
+        body = _read(ROOT, "docs", *chapter.split("/"))
+        assert "externally-managed" in body, chapter
+        assert "break-system-packages" in body, chapter
+
+
 # -- figures that are measured, not remembered ---------------------------
 
 def _quoted_test_counts():

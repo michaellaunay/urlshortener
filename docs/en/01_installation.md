@@ -11,7 +11,7 @@ no database server for as long as SQLite is enough.
 git clone https://github.com/michaellaunay/urlshortener.git
 cd urlshortener
 python3 -m venv .venv
-. .venv/bin/activate
+. .venv/bin/activate          # BEFORE the first pip, see below
 
 pip install --require-hashes -r requirements-test.lock
 pip install --no-deps -e .
@@ -26,6 +26,12 @@ The service listens on <http://localhost:5123/>.
 three: templates reload, logging is at DEBUG, and the private-target
 guard is **off** so that `http://localhost:8080/` can be shortened
 while developing.
+
+On Debian and Ubuntu a `pip install` run **before** activation answers
+`externally-managed-environment` (PEP 668) and suggests
+`--break-system-packages`. Don't take that suggestion: it installs into
+the system python. Activating the virtualenv is the right answer; the
+prompt then shows `(.venv)`.
 
 ### After a patch that touches the locks
 
@@ -52,7 +58,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-482 tests, 91% coverage. The three exact quality-CI commands — run
+484 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
