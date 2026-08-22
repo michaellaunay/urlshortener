@@ -46,9 +46,45 @@ Two deliberate departures: the HTTP status is now `400` (instead of
 `200`), and `error` carries a stable identifier rather than an English
 sentence — branch on the identifier, display the message.
 
-This entry point is a **GET that writes**. That is a 2016 design flaw,
-kept so nothing breaks: new integrations should use
-`POST /api/v1/shorten`.
+#### This entry point is on its way out
+
+It is a **GET that writes**, and three things follow, none of which is
+fixable while keeping it:
+
+1. browser prefetch, crawlers, scanners and a plain `<img src="…">` on
+   any third-party page all create links — at the **visitor's** address
+   rather than the author's, which also spreads the rate limit across
+   strangers;
+2. the target lands in a **query string**, and therefore in the nginx
+   access log, the browser history, and whatever monitoring reads
+   either. A password-reset URL shortened this way is written in the
+   clear in three places. `POST /api/v1/shorten` puts it in a body,
+   which none of the three records;
+3. no preflight stands between a third-party page and it.
+
+It stays **on by default**: KuneAgi calls it, and this project's first
+promise is that nothing written against the 2016 service breaks. Every
+answer therefore carries:
+
+```http
+Deprecation: true
+Link: <https://example.org/api/v1/shorten>; rel="successor-version"
+```
+
+and every use logs a line at INFO. That is what makes switching it off
+a decision rather than a gamble:
+
+```bash
+journalctl -u urlshortener --since '30 days ago' | grep -c 'legacy GET /?url= used'
+```
+
+Zero for a month? Then `urlshortener.enable_legacy_get = false`. The
+entry point answers **410 Gone**, keeping the 2016 body shape so an old
+client's parser reads the refusal instead of choking on it:
+
+```json
+{ "code": "ERROR", "error": "error_legacy_get_disabled", "original_url": "…" }
+```
 
 ### `POST /` (form)
 

@@ -46,9 +46,47 @@ Deux écarts assumés : le statut HTTP est désormais `400` (au lieu de
 `200`), et `error` porte un identifiant stable plutôt qu'un message de
 langue anglaise — on branche sur l'identifiant, on affiche le message.
 
-Ce point d'entrée est un **GET qui écrit**. C'est un défaut de
-conception de 2016, conservé pour ne rien casser : les intégrations
-neuves doivent utiliser `POST /api/v1/shorten`.
+#### Ce point d'entrée est en voie d'extinction
+
+C'est un **GET qui écrit**, et trois choses en découlent, dont aucune
+n'est réparable en le gardant :
+
+1. le préchargement d'un navigateur, un robot d'indexation, un scanner
+   ou une simple balise `<img src="…">` sur n'importe quelle page tierce
+   créent des liens — à l'adresse du **visiteur** et non de l'auteur, ce
+   qui répartit du même coup la limitation sur des inconnus ;
+2. la cible atterrit dans une **chaîne de requête**, donc dans le
+   journal d'accès nginx, dans l'historique du navigateur et dans tout
+   ce qui lit l'un ou l'autre. Une URL de réinitialisation de mot de
+   passe raccourcie par ce chemin se retrouve écrite en clair à trois
+   endroits. `POST /api/v1/shorten` la met dans un corps, qu'aucun de
+   ces trois n'enregistre ;
+3. aucun préflight ne s'interpose entre une page tierce et lui.
+
+Il reste **actif par défaut** : KuneAgi l'appelle, et la première
+promesse de ce projet est que rien d'écrit contre le service de 2016 ne
+casse. Chaque réponse porte donc :
+
+```http
+Deprecation: true
+Link: <https://exemple.org/api/v1/shorten>; rel="successor-version"
+```
+
+et chaque usage produit une ligne de journal en INFO. C'est ce qui rend
+la coupure décidable :
+
+```bash
+journalctl -u urlshortener --since '30 days ago' | grep -c 'legacy GET /?url= used'
+```
+
+Zéro pendant un mois ? Alors `urlshortener.enable_legacy_get = false`.
+Le point d'entrée répond ensuite **410 Gone**, en conservant la forme
+de corps de 2016 pour qu'un vieux client lise le refus au lieu de
+s'étrangler dessus :
+
+```json
+{ "code": "ERROR", "error": "error_legacy_get_disabled", "original_url": "…" }
+```
 
 ### `POST /` (formulaire)
 

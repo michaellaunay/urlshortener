@@ -27,7 +27,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "urlshortener"
-version = "2.0.9"
+version = "2.0.10"
 description = "URL shortener (Pyramid/SQLAlchemy) — successor of ecreall/urlshortener"
 readme = "README.md"
 requires-python = ">=3.11"

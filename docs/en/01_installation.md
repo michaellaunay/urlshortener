@@ -114,6 +114,7 @@ matching environment variable. Precedence is
 | `urlshortener.block_private_targets` | `URLSHORTENER_BLOCK_PRIVATE_TARGETS` | `true` | Refuse literal private addresses |
 | `urlshortener.blocked_hosts` | `URLSHORTENER_BLOCKED_HOSTS` | empty | Hosts always refused, subdomains included |
 | `urlshortener.count_hits` | `URLSHORTENER_COUNT_HITS` | `true` | Count redirects |
+| `urlshortener.enable_legacy_get` | `URLSHORTENER_ENABLE_LEGACY_GET` | `true` | Serve `GET /?url=` (2016) |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Creations per window per address |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Window length |
 | `urlshortener.cors_origins` | `URLSHORTENER_CORS_ORIGINS` | empty | Origins allowed on the API |

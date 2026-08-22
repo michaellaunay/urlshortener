@@ -1,6 +1,42 @@
 Changelog
 =========
 
+2.0.10 (2026-08-22) — a way out for GET /?url= (train 0010)
+------------------------------------------------------------
+
+- **C-09 (medium, made decidable)** ``GET /?url=`` is a GET that
+  writes, and three things follow: browser prefetch, crawlers, scanners
+  and a plain ``<img src>`` on any third-party page create links, at the
+  visitor's address rather than the author's; the target lands in a
+  query string and therefore in the access log, the browser history and
+  whatever reads either; and no preflight stands between a third-party
+  page and it.
+
+  It stays **ON by default**. KuneAgi calls it, and this project's
+  first promise is that nothing written against the 2016 service
+  breaks. Turning it off by default would be the project breaking its
+  own contract to satisfy an audit.
+
+  What is added is the ability to switch it off — new
+  ``urlshortener.enable_legacy_get`` — and the means to know when that
+  is safe. Every answer now carries ``Deprecation: true`` and a
+  ``Link`` to ``POST /api/v1/shorten`` with ``rel="successor-version"``
+  (built from ``base_url``, so it stays correct behind a prefix mount),
+  and every use logs one line at INFO. Grep that line for a month; when
+  it stops appearing, the switch is a decision rather than a gamble.
+
+  Disabled, it answers **410 Gone** — the endpoint existed, and the
+  answer is that it is over — keeping the 2016 body shape so an old
+  client's parser reads the refusal instead of choking on it. Nothing
+  else changes: the home page, the form, the API and the redirect are
+  untouched, which a test checks.
+
+  The log line deliberately does NOT repeat the target: it is already
+  in the query string of the access log, and writing it a second time
+  would put a password-reset URL in a second place for no gain. A test
+  pins that.
+
+
 2.0.9 (2026-08-22) — preflight and start-up validation (train 0009)
 --------------------------------------------------------------------
 

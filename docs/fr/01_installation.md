@@ -116,6 +116,7 @@ variable d'environnement correspondante. L'ordre est
 | `urlshortener.block_private_targets` | `URLSHORTENER_BLOCK_PRIVATE_TARGETS` | `true` | Refuser les adresses privées littérales |
 | `urlshortener.blocked_hosts` | `URLSHORTENER_BLOCKED_HOSTS` | vide | Hôtes toujours refusés, sous-domaines compris |
 | `urlshortener.count_hits` | `URLSHORTENER_COUNT_HITS` | `true` | Compter les redirections |
+| `urlshortener.enable_legacy_get` | `URLSHORTENER_ENABLE_LEGACY_GET` | `true` | Servir `GET /?url=` (2016) |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Créations par fenêtre et par adresse |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Durée de la fenêtre |
 | `urlshortener.cors_origins` | `URLSHORTENER_CORS_ORIGINS` | vide | Origines autorisées sur l'API |

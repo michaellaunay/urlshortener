@@ -172,6 +172,18 @@ def _page_context(request, with_count=True, **extra):
     return context
 
 
+def _mark_deprecated(request) -> None:
+    """Say, in the answer itself, that this entry point is on its way out.
+
+    `Deprecation: true` and a `Link` to the successor are what a client
+    library can notice without anyone reading a changelog.
+    """
+    request.response.headers["Deprecation"] = "true"
+    request.response.headers["Link"] = (
+        '<%sapi/v1/shorten>; rel="successor-version"' % request.app_settings.base_url
+    )
+
+
 def body_too_large(request) -> bool:
     """True when the declared request body exceeds `max_body_bytes`.
 
@@ -204,8 +216,40 @@ def home(request):
 
 
 def _legacy_get_json(request, raw_url):
-    """`GET /?url=...` -- the 2016 JSON shape, character for character."""
+    """`GET /?url=...` -- the 2016 JSON shape, character for character.
+
+    Kept because KuneAgi calls it and the first promise of this project
+    is that nothing written against the 2016 service breaks. Every
+    answer carries `Deprecation` and a `Link` to the successor, and
+    every USE is logged at INFO -- the only way to find out whether the
+    callers have actually moved before switching it off.
+    """
     request.override_renderer = "json"
+    settings = request.app_settings
+
+    if not settings.enable_legacy_get:
+        # 410 rather than 404: the endpoint existed, the answer is that
+        # it is over. The 2016 body shape is preserved so an old
+        # client's parser reads the refusal instead of choking on it.
+        log.info("legacy GET /?url= refused: disabled by configuration")
+        request.response.status_int = 410
+        _mark_deprecated(request)
+        return {
+            "code": "ERROR",
+            "error": "error_legacy_get_disabled",
+            "original_url": raw_url,
+        }
+
+    # One line per use, deliberately. The target is NOT logged: it is
+    # already in the query string of the access log, and repeating it
+    # here would put it in a second place for no gain.
+    log.info(
+        "legacy GET /?url= used (referer=%r) — the successor is "
+        "POST /api/v1/shorten",
+        request.headers.get("Referer", ""),
+    )
+    _mark_deprecated(request)
+
     if not request.throttle.allow(_client_key(request)):
         request.response.status_int = 429
         return {

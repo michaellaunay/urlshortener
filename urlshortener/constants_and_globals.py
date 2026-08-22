@@ -222,6 +222,27 @@ class AppSettings:
     blocked_hosts: tuple = ()
     #: Count redirects. One UPDATE per hit; turn off for a read-only DB.
     count_hits: bool = True
+    #: Serve `GET /?url=...`, the 2016 entry point that CREATES a link.
+    #:
+    #: EXTERNAL AUDIT 2026-08-22, finding C-09. Three things are wrong
+    #: with it, and none of them is fixable while keeping it:
+    #:
+    #: 1. a GET that writes. Browser prefetch, crawlers, scanners and a
+    #:    plain `<img src="...">` on any third-party page all create
+    #:    links, at the visitor's address rather than the author's,
+    #:    which also spreads the rate limit across strangers;
+    #: 2. the target lands in a QUERY STRING, so it is written to the
+    #:    nginx access log, the browser history, and whatever
+    #:    monitoring reads either. `POST /api/v1/shorten` puts it in a
+    #:    body, which none of those record;
+    #: 3. no CORS preflight stands between a third-party page and it.
+    #:
+    #: Default TRUE all the same: KuneAgi calls it, and this project's
+    #: first promise is that nothing written against the 2016 service
+    #: breaks. Turning it off is a decision with a date, taken once the
+    #: callers have moved -- which is what the log line and the
+    #: `Deprecation` header exist to make measurable.
+    enable_legacy_get: bool = True
     #: Creations allowed per client address and per window.
     throttle_max_creations: int = 30
     throttle_window_seconds: int = 300
@@ -281,6 +302,10 @@ class AppSettings:
             ),
             count_hits=as_bool(
                 get("count_hits", "URLSHORTENER_COUNT_HITS"), cls.count_hits
+            ),
+            enable_legacy_get=as_bool(
+                get("enable_legacy_get", "URLSHORTENER_ENABLE_LEGACY_GET"),
+                cls.enable_legacy_get,
             ),
             throttle_max_creations=as_int(
                 get("throttle_max_creations", "URLSHORTENER_THROTTLE_MAX"),
