@@ -58,7 +58,7 @@ curl -I http://localhost:5123/h6QStqWsRk3   # 302 -> https://example.org/a/long/
 - **Operable**: digest-pinned multi-stage image, hash-checked
   dependency locks, non-root, health check, backup script, schema
   upgrade steps.
-- **Tested**: 410 tests, 91% coverage, three CI workflows (unit,
+- **Tested**: 435 tests, 91% coverage, three CI workflows (unit,
   quality, container smoke).
 - **Audited**: one internal pass and one external pass, both filed
   under `docs/fr/audits/`, every fixable finding fixed with a

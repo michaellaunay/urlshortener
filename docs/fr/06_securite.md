@@ -37,6 +37,14 @@ une URL stockée devient une injection d'en-tête le jour où elle est
 
 **Hôte canonique** : une seule écriture de l'hôte est calculée, puis
 tous les contrôles portent sur elle et c'est elle qui est stockée.
+L'encodage international suit **UTS #46 non-transitionnel**, c'est-à-dire
+ce que fait un navigateur, et non le codec `idna` intégré à Python, qui
+implémente RFC 3490 (IDNA2003). Les deux divergent sur des noms qui
+existent : `faß.de` donne `fass.de` avec le codec et `xn--fa-hia.de`
+dans un navigateur — deux domaines, potentiellement deux propriétaires.
+Pour un service dont la promesse entière est « tu arrives là où tu as
+demandé », résoudre un hôte autrement que le navigateur qui suivra le
+lien n'est pas une nuance.
 Cela ferme deux contournements trouvés par l'audit externe : les
 écritures alternatives d'une IPv4 (`2130706433`, `127.1`,
 `0x7f000001`, `0177.0.0.1` sont toutes `127.0.0.1` pour un navigateur,

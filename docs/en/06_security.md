@@ -37,7 +37,15 @@ stored URL becomes a header-injection attempt the day it is written
 into `Location:`.
 
 **Canonical host**: one spelling of the host is computed, every check
-runs on it, and it is what gets stored. That closes two bypasses found
+runs on it, and it is what gets stored. International names are encoded
+under **UTS #46, non-transitional** — what a browser does — and not
+with Python's built-in `idna` codec, which implements RFC 3490
+(IDNA2003). The two disagree on names that exist: `faß.de` gives
+`fass.de` under the codec and `xn--fa-hia.de` in a browser, two
+domains with potentially two different owners. For a service whose
+whole promise is "you arrive where you asked to arrive", resolving a
+host differently from the browser that will follow the link is not a
+nuance. That closes two bypasses found
 by the external audit: alternative IPv4 spellings (`2130706433`,
 `127.1`, `0x7f000001`, `0177.0.0.1` are all `127.0.0.1` to a browser,
 and `ipaddress` knows only one of them), and the two spellings of an

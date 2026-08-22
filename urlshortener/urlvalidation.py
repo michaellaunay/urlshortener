@@ -21,6 +21,8 @@ import ipaddress
 import re
 from urllib.parse import quote, urlsplit, urlunsplit
 
+import idna
+
 #: One DNS label: letters, digits and hyphens, never leading or
 #: trailing, at most 63 characters.
 _LABEL = re.compile(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
@@ -108,6 +110,36 @@ def _looks_numeric(host: str) -> bool:
     return bool(labels) and bool(_NUMERIC_LABEL.match(labels[-1]))
 
 
+def _to_idna(candidate: str) -> str:
+    """Encode a host the way a BROWSER encodes it, not the way Python does.
+
+    EXTERNAL AUDIT, second pass, finding D-01. `str.encode("idna")` is
+    the built-in codec, and it implements RFC 3490 -- IDNA2003. A
+    browser follows the URL Standard, which is UTS #46 with
+    NON-TRANSITIONAL processing. The two disagree on names that exist:
+
+        faß.de       codec -> fass.de            browser -> xn--fa-hia.de
+        βόλος.com    codec -> xn--nxasmq6b.com   browser -> xn--nxasmm1c.com
+
+    Those are different domains, and they can have different owners. A
+    shortener whose whole promise is "you arrive where you asked to
+    arrive" cannot resolve a host differently from the browser that
+    will follow the link -- this is the same class of defect as the
+    non-ASCII `Location:` fixed in 2.0.1, and it was introduced by the
+    canonicalisation train that was meant to close that class.
+
+    `transitional=False` is the browser behaviour and the one that
+    keeps ß as ß. `std3_rules=False` matches what browsers accept;
+    the label shape is checked separately by `_LABEL` afterwards.
+    """
+    try:
+        return idna.encode(
+            candidate, uts46=True, transitional=False, std3_rules=False
+        ).decode("ascii").lower()
+    except (idna.IDNAError, UnicodeError, UnicodeDecodeError) as error:
+        raise InvalidURL("error_url_host", str(error)) from None
+
+
 def canonical_host(host: str, strict=True):
     """Return `(canonical_ascii_host, ip_or_None)`.
 
@@ -149,16 +181,16 @@ def canonical_host(host: str, strict=True):
             raise InvalidURL("error_url_host", host)
         return host, None
 
-    candidate = host.rstrip(".").lower()
+    candidate = host.rstrip(".")
     if not candidate or len(candidate) > 253:
         if strict:
             raise InvalidURL("error_url_host", host)
         return host, None
     try:
-        ascii_host = candidate.encode("idna").decode("ascii").lower()
-    except (UnicodeError, UnicodeDecodeError):
+        ascii_host = _to_idna(candidate)
+    except InvalidURL:
         if strict:
-            raise InvalidURL("error_url_host", host) from None
+            raise
         return host, None
     if not all(_LABEL.match(label) for label in ascii_host.split(".")):
         if strict:

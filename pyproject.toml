@@ -27,7 +27,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "urlshortener"
-version = "2.0.11"
+version = "2.0.12"
 description = "URL shortener (Pyramid/SQLAlchemy) — successor of ecreall/urlshortener"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,13 @@ dependencies = [
     "zope.sqlalchemy>=3.1,<4",
     "transaction>=5.1,<6",
     "python-dotenv>=1.0.1,<2",
+    # UTS #46, non-transitional — what a browser does with an
+    # internationalised host name. Python's built-in `idna` codec
+    # implements RFC 3490 (IDNA2003) instead, and the two disagree on
+    # real names: `faß.de` becomes `fass.de` under the codec and
+    # `xn--fa-hia.de` in a browser. Two different domains, potentially
+    # two different owners (external audit, second pass, finding D-01).
+    "idna>=3.7,<4",
     # NOTE (audit 2026-08-22, S-08): setuptools is a RUNTIME dependency
     # here -- pyramid, zope-deprecation and zope-sqlalchemy declare it
     # through pkg_resources -- so it ships in the image and pip-audit

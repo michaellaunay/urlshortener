@@ -1,6 +1,36 @@
 Changelog
 =========
 
+2.0.12 (2026-08-22) — browser-compatible IDNA (train 0012)
+-----------------------------------------------------------
+
+- **D-01 (high, fixed)** International host names were encoded with
+  Python's built-in ``idna`` codec, which implements RFC 3490
+  (IDNA2003). A browser follows the URL Standard, which is UTS #46 with
+  NON-TRANSITIONAL processing, and the two disagree on names that
+  exist::
+
+      faß.de       stored as fass.de           browser reaches xn--fa-hia.de
+      βόλος.com    stored as xn--nxasmq6b.com  browser reaches xn--nxasmm1c.com
+
+  Those are different domains and can have different owners, so the
+  service could hand out a short link that resolves somewhere other
+  than the address it was given — the one property a shortener has to
+  keep. The blocklist was wrong in the same way: an entry written
+  ``faß.de`` blocked ``fass.de`` and let the intended domain through.
+
+  Now uses the ``idna`` package with ``uts46=True,
+  transitional=False``. Added to ``pyproject.toml`` and to the three
+  hashed locks, since replacing a built-in codec adds a dependency and
+  an unlocked import fails only in the container.
+
+  This is the same class of defect as the non-ASCII ``Location:`` fixed
+  in 2.0.1, and it was introduced by train 0002 — the canonicalisation
+  train written to close that class. Hence a test file of its own, and
+  a test that asserts what the OLD codec produced, so the difference is
+  recorded rather than the preference.
+
+
 2.0.11 (2026-08-22) — documentation brought back in step (train 0011)
 ----------------------------------------------------------------------
 
