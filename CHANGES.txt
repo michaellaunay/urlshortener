@@ -1,6 +1,43 @@
 Changelog
 =========
 
+2.0.15 (2026-08-22) — the second audit, filed (train 0015)
+------------------------------------------------------------
+
+Documentation only; no behaviour changes.
+
+- The **second external audit pass** is filed under
+  ``docs/fr/audits/``, with its provenance, two reserves — it was read
+  at 2.0.10, one train behind, and at a commit SHA that no longer
+  exists since the history was rewritten the same day — and a table
+  pairing each finding with the train that answered it.
+- Both security chapters and both audit indexes now list the three
+  passes, and say plainly that **three decisions remain open**:
+  ``count_hits`` on every redirect, the date ``GET /?url=`` is switched
+  off, and branch protection. A security chapter that lists only what
+  is fixed reads as a claim that nothing is left.
+- ``07_sso_keycloak`` promised a CSRF token when actions gain an
+  identity. Train 0013 already guards anonymous creation with
+  ``Sec-Fetch-Site``, so the chapter now says which half of that
+  promise is kept — and why it is NOT a substitute for a token on a
+  privileged action: the guard fails OPEN when the header is absent,
+  which suits a public creation and suits a revocation not at all.
+- Two new documentation locks. Every filed report must state the
+  disposition of its findings — fixed, or carried as an accepted risk —
+  and the open decisions must appear in both security chapters. The
+  first is checked as vocabulary rather than as a table, because the
+  internal pass fixed its findings within the pass itself and predates
+  the train scheme: demanding a train column would force a rewrite, and
+  a report is never rewritten after the fact.
+
+The second pass also closed a question the internal audit had left
+open: it names CVE-2026-59890 and its scope (source distributions on
+APFS/HFS+ with differently normalised Unicode names), which has nothing
+to do with a Linux container that builds nothing. The ``pip-audit``
+exception moves from "I cannot assess this" to an informed acceptance,
+still dated and still to be revisited at each pyramid release.
+
+
 2.0.14 (2026-08-22) — the limiter's identity and its cost (train 0014)
 -----------------------------------------------------------------------
 

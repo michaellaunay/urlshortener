@@ -99,6 +99,36 @@ def test_the_missing_translations_are_declared_not_hidden():
     assert "pending" in body
 
 
+def test_every_audit_report_states_the_disposition_of_its_findings():
+    """A report that says what is wrong and not what became of it turns
+    into an accusation nobody can close.
+
+    Checked as vocabulary, not as a table: the internal pass fixed its
+    findings within the pass itself and predates the train scheme, so
+    demanding a train column would force a rewrite — and a report is
+    never rewritten after the fact. What every report must carry is the
+    disposition: fixed, or carried as an accepted risk.
+    """
+    directory = os.path.join(FR, "audits")
+    reports = [name for name in sorted(os.listdir(directory)) if re.match(r"^\d{8}_", name)]
+    assert reports, "the audits directory is empty"
+    for name in reports:
+        body = _read(directory, name).lower()
+        assert "corrigé" in body, "%s never says what was fixed" % name
+        assert any(word in body for word in ("train", "assumé", "accepté")), (
+            "%s never says what became of what was not fixed" % name
+        )
+
+
+def test_the_open_decisions_are_stated_where_a_reader_looks():
+    """They are decisions, not oversights. A security chapter that
+    lists only what is fixed reads as a claim that nothing is left."""
+    for chapter in ("fr/06_securite.md", "en/06_security.md"):
+        body = _read(ROOT, "docs", *chapter.split("/"))
+        assert "count_hits" in body, chapter
+        assert "enable_legacy_get" in body or "GET /?url=" in body, chapter
+
+
 def test_every_audit_report_is_listed_in_its_index():
     reports = {
         name for name in os.listdir(os.path.join(FR, "audits"))

@@ -61,6 +61,13 @@ is today. A deployment with no Keycloak must see nothing change.
    whether anonymous `POST /` stays exempt (probably yes, or the 2016
    clients break).
 
+   Since train 0013 anonymous creation is already guarded by
+   `Sec-Fetch-Site`, and the API accepts JSON only, so nothing
+   cross-site lands without a preflight. That is **not** a substitute
+   for a token on a privileged action: the guard fails OPEN when the
+   header is absent, which suits a public creation and suits a
+   revocation not at all.
+
 5. **Logout.** Local only, as in the KuneAgi plugin, or propagated to
    Keycloak?
 

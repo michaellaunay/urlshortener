@@ -191,26 +191,31 @@ production.
 ## Audits
 
 Versés sous [`docs/fr/audits/`](audits/README.md), datés et
-autoportants.
+autoportants. Un audit n'est jamais réécrit après coup : une découverte
+revue plus tard donne lieu à une nouvelle passe qui cite la précédente.
 
-- **[22 août 2026 — audit interne](audits/20260822_audit_securite_interne.md)**
-  : une découverte haute (S-01, cible non-ASCII servie brute dans
-  `Location:` — 500 permanent ou redirection mutilée), trois moyennes,
-  six basses, quatre risques assumés.
-- **[22 août 2026 — audit externe](audits/20260822_audit_externe_chatgpt.md)**
-  : quatre P0, quatre P1, cinq P2. Il a trouvé trois choses que l'audit
-  interne n'avait pas vues, et elles se ressemblent — ce sont toutes des
-  **canonicalisations manquantes** : quatre écritures d'une IPv4, deux
-  orthographes d'un nom international, un antislash lu comme un
-  séparateur. Corrigées par les trains 0002 à 0010.
+- **[Audit interne](audits/20260822_audit_securite_interne.md)** — une
+  découverte haute (S-01, cible non-ASCII servie brute dans
+  `Location:`), trois moyennes, six basses, quatre risques assumés.
+- **[Audit externe, première passe](audits/20260822_audit_externe_chatgpt.md)**
+  — quatre P0. Trois choses que l'audit interne n'avait pas vues, toutes
+  des **canonicalisations manquantes** : quatre écritures d'une IPv4,
+  deux orthographes d'un nom international, un antislash lu comme un
+  séparateur. Trains 0002 à 0010.
+- **[Audit externe, seconde passe](audits/20260822_audit_externe_chatgpt_2.md)**
+  — « globalement solide ». Trois découvertes, de la même famille :
+  l'encodage IDNA divergeant de celui des navigateurs (D-01), le
+  formulaire échappant au préflight (D-02), et une identité de
+  limitation qui ne limitait rien en IPv6 (D-04). Trains 0012 à 0014.
 
 Chaque découverte corrigeable l'a été avec son propre test de
 non-régression, démonstration rouge/vert faite train par train.
 
-Restent ouverts : l'API de consultation bavarde (risque accepté), la
-redirection ouverte par nature sans écran d'avertissement, `read_only`
-sur le conteneur à valider, et l'exception `pip-audit` sur setuptools
-que le pin de pyramid rend inlevable.
+**Trois décisions restent ouvertes**, aucune n'étant un correctif :
+l'écriture du compteur de visites à chaque redirection
+(`count_hits`), la date de coupure de `GET /?url=`, et la protection
+de la branche `main` avec ses trois contrôles obligatoires. Le détail
+est dans la seconde passe.
 
 ## Signaler une faille
 

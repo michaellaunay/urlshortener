@@ -12,6 +12,7 @@ a new pass that cites the previous one.
 | --- | --- | --- |
 | 2026-08-22 | Internal security audit | 1 high, 3 medium, 6 low, 4 accepted risks — every fixable finding fixed |
 | 2026-08-22 | External audit (ChatGPT) | 4 P0, 4 P1, 5 P2, 1 P3 — trains 0002 to 0010, one accepted risk |
+| 2026-08-22 | External audit, second pass | "Broadly solid" — 3 fixes (trains 0012 to 0014), 2 accepted risks, 3 decisions pending |
 
 ## Language parity
 

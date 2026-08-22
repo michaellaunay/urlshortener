@@ -183,25 +183,30 @@ production.
 ## Audits
 
 Filed under [`docs/fr/audits/`](../fr/audits/README.md), dated and
-self-contained. Both reports are in French; see
-[`docs/en/audits/`](audits/README.md) for the parity note.
+self-contained; all three are in French, see
+[`docs/en/audits/`](audits/README.md) for the parity note. An audit is
+never rewritten afterwards: a finding revisited later gets a new pass
+that cites the previous one.
 
-- **22 August 2026 — internal audit**: one high finding (S-01, a
-  non-ASCII target served raw in `Location:` — a permanent 500 or a
-  mangled redirect), three medium, six low, four accepted risks.
-- **22 August 2026 — external audit**: four P0, four P1, five P2. It
-  found three things the internal pass had missed, and they are alike —
-  all **missing canonicalisations**: four spellings of one IPv4 address,
-  two spellings of one international name, a backslash read as a
-  separator. Fixed by trains 0002 to 0010.
+- **Internal audit** — one high finding (S-01, a non-ASCII target
+  served raw in `Location:`), three medium, six low, four accepted
+  risks.
+- **External audit, first pass** — four P0. Three things the internal
+  pass had missed, all **missing canonicalisations**: four spellings of
+  one IPv4 address, two spellings of one international name, a
+  backslash read as a separator. Trains 0002 to 0010.
+- **External audit, second pass** — "broadly solid". Three findings of
+  the same family: IDNA encoding diverging from what browsers do
+  (D-01), the form escaping the preflight (D-02), and a throttling
+  identity that limited nothing under IPv6 (D-04). Trains 0012 to 0014.
 
 Every fixable finding was fixed with a regression test of its own, with
 a red/green demonstration train by train.
 
-Still open: the talkative read API (accepted risk), the open redirect
-that is the product itself with no interstitial, `read_only` on the
-container awaiting a real build, and the `pip-audit` exception on
-setuptools that pyramid's pin makes unliftable.
+**Three decisions remain open**, none of them a fix: the visit counter
+written on every redirect (`count_hits`), the date `GET /?url=` is
+switched off, and protecting the `main` branch with its three required
+checks. The detail is in the second pass.
 
 ## Reporting a vulnerability
 

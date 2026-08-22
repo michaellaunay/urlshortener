@@ -63,6 +63,13 @@ rien voir changer.
    savoir si `POST /` anonyme en reste exempt (probablement oui,
    sinon les clients de 2016 cassent).
 
+   Depuis le train 0013, la création anonyme est déjà gardée par
+   `Sec-Fetch-Site`, et l'API n'accepte que du JSON — donc rien de
+   cross-site n'aboutit sans préflight. Ce n'est **pas** un substitut à
+   un jeton pour une action privilégiée : la garde échoue ouverte quand
+   l'en-tête est absent, ce qui convient à une création publique et pas
+   du tout à une révocation.
+
 5. **La déconnexion.** Locale seulement, comme dans le greffon KuneAgi,
    ou déconnexion propagée à Keycloak ?
 

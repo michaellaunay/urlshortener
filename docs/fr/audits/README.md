@@ -12,6 +12,7 @@ donne lieu à un nouveau passage qui cite le précédent.
 | --- | --- | --- |
 | 2026-08-22 | [Audit interne de sécurité](20260822_audit_securite_interne.md) | 1 haute, 3 moyennes, 6 basses, 4 risques assumés — toutes les découvertes corrigeables corrigées |
 | 2026-08-22 | [Audit externe (ChatGPT)](20260822_audit_externe_chatgpt.md) | 4 P0, 4 P1, 5 P2, 1 P3 — trains 0002 à 0010, un risque accepté |
+| 2026-08-22 | [Audit externe, seconde passe](20260822_audit_externe_chatgpt_2.md) | « Globalement solide » — 3 corrections (trains 0012 à 0014), 2 risques acceptés, 3 décisions en attente |
 
 ## Parité linguistique
 

@@ -52,7 +52,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-480 tests, 91% coverage. The three exact quality-CI commands — run
+482 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
