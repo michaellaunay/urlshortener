@@ -15,8 +15,8 @@ the volume, so an operator can read exactly what the server was given.
 """
 from __future__ import annotations
 
+import ipaddress
 import os
-import socket
 import struct
 import sys
 from configparser import RawConfigParser
@@ -73,12 +73,21 @@ def default_gateway(route_table="/proc/net/route"):
             continue
         try:
             packed = struct.pack("<L", int(fields[2], 16))
-        except (ValueError, struct.error):
+            address = ipaddress.IPv4Address(packed)
+        except (ValueError, struct.error, ipaddress.AddressValueError):
             continue
-        address = socket.inet_ntoa(packed)
-        if address == "0.0.0.0":
+        # A default route with no gateway (`is_unspecified`) means the
+        # destination is on-link: there is no proxy address to trust.
+        #
+        # Written as `is_unspecified` rather than as a comparison with
+        # the literal address: bandit reads that literal as a bind to
+        # every interface (B104) and fails the quality job. Train 0004
+        # introduced exactly that, and the gate was not re-read closely
+        # enough at the time -- `grep "No issues|Total lines"` matched
+        # the second pattern and looked green.
+        if address.is_unspecified:
             continue
-        return address
+        return str(address)
     return None
 
 

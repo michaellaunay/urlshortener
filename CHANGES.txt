@@ -1,6 +1,47 @@
 Changelog
 =========
 
+2.0.9 (2026-08-22) — preflight and start-up validation (train 0009)
+--------------------------------------------------------------------
+
+- **C-15 (functional, fixed) — cross-origin access was announced and
+  did not work.** Every allowed response advertised
+  ``Access-Control-Allow-Methods: GET, POST, OPTIONS`` and no view
+  answered ``OPTIONS``, so a browser POSTing JSON — which always
+  preflights — received a **404 on the preflight** and never sent the
+  request. ``OPTIONS`` is now answered on ``/``, ``/api/v1/shorten``
+  and ``/api/v1/links/{code}`` with a 204 plus
+  ``Access-Control-Max-Age``. The answer is 204 whatever the origin:
+  the permission headers are added only for an allowed one, and a
+  browser reading a 204 without them refuses the call itself. A test
+  now walks the advertised methods and checks each one is implemented,
+  so the mismatch that caused this finding cannot recur.
+- **C-15 (low, fixed) — ``Vary: Origin`` on the refusals too.** It was
+  set only on the branch that allowed a named origin, so a shared cache
+  could store the header-less answer given to a refused origin and hand
+  it back to an allowed one, or the reverse. As soon as the answer
+  depends on ``Origin``, every answer must say so.
+- **C-17 (medium, fixed) — an impossible configuration started
+  cleanly.** ``code_length = 0`` was accepted and failed hours later,
+  on the first shortening, with a ``ValueError`` about an alphabet.
+  ``AppSettings.validate()`` now runs in ``main()`` and refuses to
+  start, collecting every problem before raising so one restart shows
+  the whole list. It also catches pairs that are each valid and jointly
+  impossible — ``max_body_bytes`` below ``max_url_length`` plus the
+  envelope means a URL of the allowed length can never be submitted —
+  and refuses ``javascript:``/``data:``/``vbscript:`` in
+  ``allowed_schemes``. Validation is deliberately NOT run from
+  ``__post_init__``: a test building an odd settings object on purpose
+  must stay free to do so.
+- **Regression from train 0004, fixed.** ``default_gateway`` compared
+  an address with the literal ``"0.0.0.0"``; bandit reads that as a
+  bind to every interface (B104) and the quality job **exits 1**. It
+  had been failing since 0004 — the check ran, and its output was read
+  through a grep loose enough to match the wrong line. Rewritten as
+  ``ipaddress.IPv4Address(...).is_unspecified``, which is also what it
+  meant.
+
+
 2.0.8 (2026-08-22) — eleven-character codes (train 0008)
 ---------------------------------------------------------
 

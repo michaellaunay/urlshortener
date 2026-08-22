@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 
+from pyramid.httpexceptions import HTTPNoContent
 from pyramid.view import view_config
 
 from .services import CodeExhausted, create_link, find_by_code
@@ -96,3 +97,33 @@ def api_link(request):
     if link is None:
         return _error(request, 404, "error_unknown_code", "No such short code.")
     return _link_json(request, link)
+
+
+#: Routes a browser may preflight. `redirect` is absent on purpose: a
+#: short link is followed by navigation, never by a scripted fetch that
+#: would preflight it.
+PREFLIGHTABLE_ROUTES = ("api_shorten", "api_link", "home")
+
+
+@view_config(route_name="api_shorten", request_method="OPTIONS")
+@view_config(route_name="api_link", request_method="OPTIONS")
+@view_config(route_name="home", request_method="OPTIONS")
+def preflight(request):
+    """Answer the browser's CORS preflight.
+
+    EXTERNAL AUDIT 2026-08-22, finding C-15. `Access-Control-Allow-
+    Methods: GET, POST, OPTIONS` was advertised on every allowed
+    response, and no view answered OPTIONS -- so a browser sending
+    `POST` with `Content-Type: application/json`, which always
+    preflights, got a **404 on the preflight** and never sent the POST
+    at all. Cross-origin access was announced and did not work.
+
+    The answer is 204 whatever the origin: the CORS headers are added
+    by the subscriber only for an allowed one, and a browser reading a
+    204 without them refuses the call itself. Refusing the preflight
+    with a 403 would say the same thing less clearly and give a caching
+    layer one more case to get wrong.
+    """
+    response = HTTPNoContent()
+    response.headers["Allow"] = "GET, POST, OPTIONS"
+    return response

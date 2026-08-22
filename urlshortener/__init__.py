@@ -15,7 +15,7 @@ from .constants_and_globals import AVAILABLE_LANGUAGES, AppSettings, DOMAIN
 from .locale_negotiation import locale_negotiator
 from .throttle import RateLimiter
 
-__version__ = "2.0.8"
+__version__ = "2.0.9"
 
 log = logging.getLogger(__name__)
 
@@ -59,12 +59,26 @@ def _add_security_headers(event):
         response.headers.setdefault(header, value)
 
 
+#: How long a browser may cache a preflight answer, in seconds.
+#: Ten minutes: long enough that a page making repeated API calls does
+#: not pay for a round trip each time, short enough that changing
+#: `cors_origins` takes effect the same morning.
+CORS_MAX_AGE = 600
+
+
 def _add_cors_headers(event):
     """Answer cross-origin JSON calls, for the origins configured.
 
     The 2016 service sent `Access-Control-Allow-Origin: *` to everyone,
     always. Here the list is explicit and empty by default; '*' remains
     expressible for a service that really is public.
+
+    EXTERNAL AUDIT 2026-08-22, finding C-15: `Vary: Origin` was set only
+    on the branch that allowed a named origin. A shared cache could
+    therefore store the header-less answer given to a refused origin and
+    hand it back to an allowed one, or the reverse. As soon as the
+    answer DEPENDS on `Origin`, every answer must say so -- including
+    the refusals.
     """
     request = event.request
     settings = getattr(request, "app_settings", None)
@@ -73,16 +87,23 @@ def _add_cors_headers(event):
     origin = request.headers.get("Origin")
     if not origin:
         return
+
     allowed = settings.cors_origins
+    if "*" not in allowed:
+        # The answer now varies with the request's Origin, whatever we
+        # decide next -- refusal included.
+        event.response.headers["Vary"] = "Origin"
+
     if "*" in allowed:
         event.response.headers["Access-Control-Allow-Origin"] = "*"
     elif origin in allowed:
         event.response.headers["Access-Control-Allow-Origin"] = origin
-        event.response.headers["Vary"] = "Origin"
     else:
         return
+
     event.response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     event.response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    event.response.headers["Access-Control-Max-Age"] = str(CORS_MAX_AGE)
 
 
 def main(global_config, **settings):
@@ -96,7 +117,11 @@ def main(global_config, **settings):
     if database_url:
         settings["sqlalchemy.url"] = database_url
 
-    app_settings = AppSettings.from_settings(settings)
+    # Refuse to start on a configuration that cannot work, rather than
+    # accept it and fail on the first request that touches the mistake
+    # (external audit C-17). The exception carries every problem at
+    # once, so one restart is enough to see them all.
+    app_settings = AppSettings.from_settings(settings).validate()
     limiter = RateLimiter(
         app_settings.throttle_max_creations, app_settings.throttle_window_seconds
     )

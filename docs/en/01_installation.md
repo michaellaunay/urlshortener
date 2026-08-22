@@ -118,6 +118,30 @@ matching environment variable. Precedence is
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Window length |
 | `urlshortener.cors_origins` | `URLSHORTENER_CORS_ORIGINS` | empty | Origins allowed on the API |
 
+### Start-up refuses an impossible configuration
+
+A configuration that cannot work **fails to start**, with the whole
+list of problems at once:
+
+```
+refusing to start, 2 problem(s) in the configuration:
+  - code_length must be between 1 and 32 (got 0)
+  - default_scheme 'ftp' is not in allowed_schemes ['http', 'https'] —
+    a URL submitted without a scheme could never be accepted
+```
+
+Checked: `base_url` absolute, http(s), ending in `/`; the bounds of
+`code_length` and `code_max_attempts`; the consistency of
+`max_body_bytes` ≥ `max_url_length` + envelope (two values each valid
+and jointly impossible); no dangerous scheme in `allowed_schemes`;
+`default_scheme` present in that list; a non-zero throttling window
+when throttling is on; and the shape of the `cors_origins` entries.
+
+Before, `code_length = 0` started cleanly and failed hours later on the
+first shortening, with a `ValueError` about an alphabet — a message
+produced by a typo in an .ini file, in a place that says nothing about
+where the typo is.
+
 **`base_url` is the one setting that cannot be corrected afterwards
 without damage**: it is what gets printed into the links handed out.
 Setting it wrong means handing out dead links.

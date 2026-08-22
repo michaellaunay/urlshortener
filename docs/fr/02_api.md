@@ -130,7 +130,18 @@ l'interface les affiche traduits, l'API les rend bruts.
 Rien n'est envoyé par défaut. En 2016 le service répondait
 `Access-Control-Allow-Origin: *` à tout le monde, systématiquement.
 Renseigner `urlshortener.cors_origins` avec la liste des origines — ou
-`*` si le service est réellement public.
+`*` si le service est réellement public. Chaque entrée doit être une
+**origine** au sens du navigateur : `scheme://hôte[:port]`, sans chemin
+ni barre oblique finale. Une entrée mal formée fait échouer le
+démarrage plutôt que de rester inerte.
+
+Le préflight (`OPTIONS`) est répondu sur `/`, `/api/v1/shorten` et
+`/api/v1/links/{code}` : un navigateur qui envoie du JSON en `POST`
+préflighte toujours, et sans réponse à `OPTIONS` l'appel n'est jamais
+émis. La réponse est un **204** quelle que soit l'origine ; les en-têtes
+d'autorisation ne sont ajoutés que pour une origine admise, et un
+navigateur qui lit un 204 sans eux refuse l'appel de lui-même.
+`Access-Control-Max-Age` évite un aller-retour par requête.
 
 ## Langue
 

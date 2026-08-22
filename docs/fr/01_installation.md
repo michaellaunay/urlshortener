@@ -120,6 +120,31 @@ variable d'environnement correspondante. L'ordre est
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Durée de la fenêtre |
 | `urlshortener.cors_origins` | `URLSHORTENER_CORS_ORIGINS` | vide | Origines autorisées sur l'API |
 
+### Le démarrage refuse une configuration impossible
+
+Une configuration qui ne peut pas fonctionner **fait échouer le
+démarrage**, avec la liste complète des problèmes d'un coup :
+
+```
+refusing to start, 2 problem(s) in the configuration:
+  - code_length must be between 1 and 32 (got 0)
+  - default_scheme 'ftp' is not in allowed_schemes ['http', 'https'] —
+    a URL submitted without a scheme could never be accepted
+```
+
+Sont vérifiés : `base_url` absolue en http(s) et terminée par `/`, les
+bornes de `code_length` et `code_max_attempts`, la cohérence
+`max_body_bytes` ≥ `max_url_length` + enveloppe (deux valeurs chacune
+correcte et conjointement impossibles), l'absence de schéma dangereux
+dans `allowed_schemes`, l'appartenance de `default_scheme` à cette
+liste, une fenêtre de limitation non nulle quand la limitation est
+active, et la forme des entrées `cors_origins`.
+
+Auparavant, `code_length = 0` démarrait proprement et échouait des
+heures plus tard, au premier raccourcissement, sur une `ValueError`
+parlant d'un alphabet — un message produit par une faute de frappe dans
+un `.ini`, à un endroit qui ne dit rien de l'endroit où est la faute.
+
 **`base_url` est le seul réglage qu'on ne peut pas corriger après coup
 sans dégâts** : c'est lui qui est imprimé dans les liens distribués. Le
 poser faux, c'est distribuer des liens morts.

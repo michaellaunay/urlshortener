@@ -13,6 +13,16 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Final
+from urllib.parse import urlsplit
+
+#: Bounds a code may take, mirrored from `codec` -- imported lazily
+#: below to keep this module free of application imports.
+MIN_CODE_LENGTH: Final = 1
+MAX_CODE_LENGTH: Final = 32
+
+#: Room a request needs around the URL itself: JSON braces, the field
+#: name, form encoding, a few headers' worth of slack.
+BODY_OVERHEAD: Final = 512
 
 from pyramid.i18n import TranslationStringFactory
 
@@ -123,6 +133,25 @@ def as_list(value) -> list:
     if isinstance(value, (list, tuple)):
         return [str(item).strip() for item in value if str(item).strip()]
     return [item.strip() for item in str(value).replace(",", " ").split() if item.strip()]
+
+
+#: Schemes that must never be redirected to, whatever the operator
+#: configures. A `Location:` carrying one of these turns the service
+#: into the attack, under its own domain.
+DANGEROUS_SCHEMES: Final = frozenset({"javascript", "data", "vbscript"})
+
+
+class ConfigurationError(Exception):
+    """The configuration cannot be served, and start-up must stop.
+
+    EXTERNAL AUDIT 2026-08-22, finding C-17: `from_settings` accepted
+    anything. `code_length = 0` started cleanly and failed later, on the
+    first attempt to shorten something, with a ValueError from deep
+    inside the codec -- an error message about an alphabet, produced by
+    a typo in an .ini file, hours after the deployment was declared
+    done. A configuration that cannot work should refuse to start, at
+    the moment and in the place where the mistake is legible.
+    """
 
 
 @dataclass(frozen=True)
@@ -269,6 +298,99 @@ class AppSettings:
                 as_list(get("cors_origins", "URLSHORTENER_CORS_ORIGINS"))
             ),
         )
+
+    def validate(self):
+        """Raise `ConfigurationError` when this configuration cannot work.
+
+        Every problem is collected before raising: an operator fixing a
+        deployment file should see the whole list, not discover the
+        second mistake after restarting for the first.
+
+        Called from `main()`, deliberately NOT from `__post_init__`: a
+        test building an odd settings object on purpose must stay free
+        to do so.
+        """
+        problems = []
+
+        if not self.base_url.endswith("/"):
+            problems.append("base_url must end with '/' (got %r)" % self.base_url)
+        base = urlsplit(self.base_url)
+        if base.scheme not in ("http", "https") or not base.netloc:
+            problems.append(
+                "base_url must be an absolute http(s) URL — it is printed into "
+                "every link handed out (got %r)" % self.base_url
+            )
+
+        if not MIN_CODE_LENGTH <= self.code_length <= MAX_CODE_LENGTH:
+            problems.append(
+                "code_length must be between %d and %d (got %d)"
+                % (MIN_CODE_LENGTH, MAX_CODE_LENGTH, self.code_length)
+            )
+        if self.code_max_attempts < 1:
+            problems.append(
+                "code_max_attempts must be at least 1 (got %d)" % self.code_max_attempts
+            )
+
+        if self.max_url_length < 32:
+            problems.append(
+                "max_url_length must be at least 32 (got %d)" % self.max_url_length
+            )
+        if self.max_body_bytes < 0:
+            problems.append("max_body_bytes cannot be negative (got %d)" % self.max_body_bytes)
+        elif 0 < self.max_body_bytes < self.max_url_length + BODY_OVERHEAD:
+            # A cross-check, not a bound: with these two numbers a URL
+            # of the maximum allowed length can never be submitted,
+            # because its envelope is refused first. Two settings that
+            # are each valid and jointly impossible.
+            problems.append(
+                "max_body_bytes (%d) is smaller than max_url_length (%d) plus the "
+                "envelope: a URL of the allowed length could never be submitted"
+                % (self.max_body_bytes, self.max_url_length)
+            )
+
+        if not self.allowed_schemes:
+            problems.append("allowed_schemes cannot be empty")
+        dangerous = sorted(set(self.allowed_schemes) & DANGEROUS_SCHEMES)
+        if dangerous:
+            problems.append(
+                "allowed_schemes must not contain %s: a Location: header carrying "
+                "one of those turns this service into the attack"
+                % ", ".join(dangerous)
+            )
+        if self.default_scheme not in self.allowed_schemes:
+            problems.append(
+                "default_scheme %r is not in allowed_schemes %r — a URL submitted "
+                "without a scheme could never be accepted"
+                % (self.default_scheme, list(self.allowed_schemes))
+            )
+
+        if self.throttle_max_creations > 0 and self.throttle_window_seconds < 1:
+            problems.append(
+                "throttle_window_seconds must be at least 1 when throttling is on "
+                "(got %d)" % self.throttle_window_seconds
+            )
+        if self.throttle_max_reads > 0 and self.throttle_window_seconds < 1:
+            problems.append(
+                "throttle_window_seconds must be at least 1 when read throttling is "
+                "on (got %d)" % self.throttle_window_seconds
+            )
+
+        for origin in self.cors_origins:
+            if origin == "*":
+                continue
+            parts = urlsplit(origin)
+            if parts.scheme not in ("http", "https") or not parts.netloc or parts.path:
+                problems.append(
+                    "cors_origins entry %r is not an origin: a browser sends "
+                    "scheme://host[:port], with no path and no trailing slash" % origin
+                )
+
+        if problems:
+            raise ConfigurationError(
+                "refusing to start, %d problem(s) in the configuration:\n  - %s"
+                % (len(problems), "\n  - ".join(problems))
+            )
+        return self
 
     def short_url(self, code: str) -> str:
         """Public URL of a code -- the 2016 `host + encoded_string`."""
