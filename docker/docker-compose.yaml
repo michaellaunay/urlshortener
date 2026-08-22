@@ -71,6 +71,18 @@ services:
       # capped at 512 MB.
       URLSHORTENER_MAX_BODY_BYTES: ${URLSHORTENER_MAX_BODY_BYTES:-16384}
 
+      # EXTERNAL AUDIT, third pass, finding E-04. These are documented
+      # as overridable and were forwarded by nothing, so setting them in
+      # docker/.env did precisely nothing. COUNT_HITS is the one that
+      # mattered: it is the documented mitigation for the write-per-
+      # redirect load, and it could not be turned off in a container.
+      URLSHORTENER_ALLOWED_SCHEMES: ${URLSHORTENER_ALLOWED_SCHEMES:-http https}
+      URLSHORTENER_CODE_MAX_ATTEMPTS: ${URLSHORTENER_CODE_MAX_ATTEMPTS:-8}
+      URLSHORTENER_COUNT_HITS: ${URLSHORTENER_COUNT_HITS:-true}
+      URLSHORTENER_DEFAULT_SCHEME: ${URLSHORTENER_DEFAULT_SCHEME:-http}
+      URLSHORTENER_MAX_URL_LENGTH: ${URLSHORTENER_MAX_URL_LENGTH:-2048}
+      URLSHORTENER_THROTTLE_MAX_READS: ${URLSHORTENER_THROTTLE_MAX_READS:-0}
+
     # Published on the loopback interface only: the reverse proxy in
     # front (nginx, Apache) is what faces the network. Binding
     # 0.0.0.0:5123 would expose the service directly, which is exactly

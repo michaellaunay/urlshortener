@@ -1,6 +1,45 @@
 Changelog
 =========
 
+2.0.19 (2026-08-22) — the deployment files agree with each other (train 0019)
+------------------------------------------------------------------------------
+
+External audit, third pass. Three findings of one shape: a setting that
+is documented, and a deployment file that does not carry it. Nothing
+fails at build time; the operator gets a different service from the one
+they configured, or none at all.
+
+- **E-01 (high, fixed) — the unit could not write its database.**
+  ``production.ini`` says ``sqlite:///%(here)s/var/urlshortener.sqlite``
+  and ``%(here)s`` is the directory of the .ini FILE. Installed at
+  ``/srv/urlshortener/etc/production.ini``, that puts the database in
+  ``etc/var/`` — outside ``ReadWritePaths`` and read-only under
+  ``ProtectSystem=strict``. ``ExecStartPre`` died there, on the very
+  path train 0017 was written to make reliable. The shipped environment
+  file now sets ``SQLALCHEMY_URL`` absolute, and a test checks it sits
+  under the unit's own ``ReadWritePaths``.
+- **E-02 (high, fixed) — the documented ``.env`` was never read.**
+  ``find_dotenv`` walks UP from the working directory; it never
+  descends into ``etc/``. An ``EnvironmentFile`` replaces that guess:
+  systemd reads the file, the contract is explicit, and configuration
+  no longer depends on the current directory.
+- **E-04 (medium, fixed) — six settings Compose did not forward.**
+  ``COUNT_HITS``, ``THROTTLE_MAX_READS``, ``MAX_URL_LENGTH``,
+  ``CODE_MAX_ATTEMPTS``, ``DEFAULT_SCHEME`` and ``ALLOWED_SCHEMES``
+  were documented as overridable and carried by nothing, so setting
+  them in ``docker/.env`` did precisely nothing. ``COUNT_HITS`` is the
+  one that mattered: it is the documented mitigation for the
+  write-per-redirect load, and it could not be switched off in a
+  container. The parity test now covers every ``URLSHORTENER_*`` the
+  settings module reads, not only the server-level overrides — which is
+  why train 0004's version of it passed while six were missing.
+- **E-03 (low, fixed) — the version drifted again.** ``pyproject.toml``
+  said 2.0.17 while the log announced 2.0.16, because the number lived
+  in two places. It now comes from the installed distribution's
+  metadata, which ``pyproject.toml`` alone produces. A test compares
+  the two and, when they disagree, says to reinstall.
+
+
 2.0.18 (2026-08-22) — the other half of the first command (train 0018)
 ------------------------------------------------------------------------
 

@@ -58,7 +58,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-494 tests, 91% coverage. The three exact quality-CI commands — run
+506 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
@@ -77,7 +77,7 @@ the data somewhere else:
 ├── app/          # the clone, owned by root, read by the service
 │   └── .venv/
 ├── var/          # the SQLite file — owned by the service alone
-└── etc/          # production.ini and .env, outside git, 0640
+└── etc/          # production.ini and urlshortener.env, outside git, 0640
 ```
 
 ```bash
@@ -97,10 +97,27 @@ cosmetic, since that is where `find_dotenv(usecwd=True)` looks for the
 `.env`.
 
 ```bash
-sudo cp deploy/systemd/urlshortener.service /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/urlshortener.service /etc/systemd/system/
+sudo install -m 0640 -o root -g urlshortener \
+     deploy/systemd/urlshortener.env.example /srv/urlshortener/etc/urlshortener.env
+$EDITOR /srv/urlshortener/etc/urlshortener.env     # base_url above all
 sudo systemctl daemon-reload
 sudo systemctl enable --now urlshortener
 ```
+
+**The environment is read by systemd, not by `python-dotenv`.**
+`find_dotenv` walks UP from the working directory; it never descends
+into `etc/`, so a `.env` placed where this documentation put it was
+**never loaded**. The `EnvironmentFile` makes the operating contract
+explicit and removes any dependence on the current directory for
+configuration.
+
+**The database path must be absolute.** `production.ini` says
+`sqlite:///%(here)s/var/urlshortener.sqlite`, and `%(here)s` is the
+directory of the **.ini file** — that is `etc/`, which
+`ProtectSystem=strict` makes read-only. The shipped environment file
+already sets `SQLALCHEMY_URL` absolute, under `ReadWritePaths`. A test
+checks the two agree.
 
 Two things to read there rather than repeat elsewhere:
 

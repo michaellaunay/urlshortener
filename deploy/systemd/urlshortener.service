@@ -1,16 +1,39 @@
 [Unit]
 Description=urlshortener (Pyramid successor to the 2016 service)
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=urlshortener
 Group=urlshortener
-WorkingDirectory=/srv/urlshortener
+
+# WorkingDirectory is the APP directory, not its parent: `find_dotenv`
+# walks up from here, and `pserve` resolves relative paths against it.
+WorkingDirectory=/srv/urlshortener/app
+
+# EXTERNAL AUDIT, third pass, finding E-02. The environment is read
+# HERE and not left to python-dotenv. `find_dotenv` walks up from the
+# working directory; it never descends into `etc/`, so a `.env` placed
+# where the documentation puts it was never loaded at all. An
+# EnvironmentFile makes the operating contract explicit and removes any
+# dependence on the current directory for configuration.
+EnvironmentFile=/srv/urlshortener/etc/urlshortener.env
+
+# Finding E-01. `production.ini` says
+# `sqlite:///%(here)s/var/urlshortener.sqlite`, and `%(here)s` is the
+# directory of the .ini FILE — /srv/urlshortener/etc — so the database
+# would land in etc/var/, which ProtectSystem=strict makes read-only.
+# The environment file therefore sets SQLALCHEMY_URL to an absolute
+# path under ReadWritePaths below. `urlshortener.env.example` ships
+# with that line already correct.
+
 ExecStartPre=/srv/urlshortener/app/.venv/bin/python -m urlshortener.upgrades /srv/urlshortener/etc/production.ini
 ExecStart=/srv/urlshortener/app/.venv/bin/pserve /srv/urlshortener/etc/production.ini
+
 Restart=on-failure
 RestartSec=5
+
 UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true

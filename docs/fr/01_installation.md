@@ -60,7 +60,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-494 tests, 91 % de couverture. Les trois commandes exactes de la CI
+506 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash
@@ -79,7 +79,7 @@ l'intérieur, les données ailleurs :
 ├── app/          # le clone, propriété de root, lu par le service
 │   └── .venv/
 ├── var/          # la base SQLite — propriété exclusive du service
-└── etc/          # production.ini et .env, hors git, 0640
+└── etc/          # production.ini et urlshortener.env, hors git, 0640
 ```
 
 ```bash
@@ -99,10 +99,27 @@ ce chapitre et le fichier livré ne disaient pas la même chose sur
 `find_dotenv(usecwd=True)` cherche le `.env`.
 
 ```bash
-sudo cp deploy/systemd/urlshortener.service /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/urlshortener.service /etc/systemd/system/
+sudo install -m 0640 -o root -g urlshortener \
+     deploy/systemd/urlshortener.env.example /srv/urlshortener/etc/urlshortener.env
+$EDITOR /srv/urlshortener/etc/urlshortener.env     # base_url surtout
 sudo systemctl daemon-reload
 sudo systemctl enable --now urlshortener
 ```
+
+**L'environnement est lu par systemd, pas par `python-dotenv`.**
+`find_dotenv` remonte depuis le répertoire de travail ; il ne descend
+jamais dans `etc/`, donc un `.env` posé là où cette documentation le
+plaçait n'était **jamais chargé**. L'`EnvironmentFile` rend le contrat
+d'exploitation explicite et supprime toute dépendance au répertoire
+courant pour la configuration.
+
+**Le chemin de la base doit être absolu.** `production.ini` dit
+`sqlite:///%(here)s/var/urlshortener.sqlite`, et `%(here)s` est le
+répertoire du **fichier .ini** — donc `etc/`, que `ProtectSystem=strict`
+rend en lecture seule. Le fichier d'environnement livré pose déjà
+`SQLALCHEMY_URL` en absolu sous `ReadWritePaths`. Un test vérifie que
+les deux concordent.
 
 Deux points à y lire plutôt qu'à les recopier ailleurs :
 

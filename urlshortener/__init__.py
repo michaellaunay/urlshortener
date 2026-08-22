@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import logging
 import os
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _distribution_version
 
 from dotenv import find_dotenv, load_dotenv
 from pyramid.config import Configurator
@@ -15,7 +17,17 @@ from .constants_and_globals import AVAILABLE_LANGUAGES, AppSettings, DOMAIN
 from .locale_negotiation import locale_negotiator
 from .throttle import RateLimiter
 
-__version__ = "2.0.16"
+# EXTERNAL AUDIT, third pass, finding E-03. This was a hard-coded
+# string beside `version` in pyproject.toml, and the two drifted twice:
+# the package said 2.0.17 while the log line announced 2.0.16. One
+# source of truth removes the class rather than the instance — the
+# number now comes from the installed distribution's metadata, which
+# pyproject.toml alone produces.
+try:
+    __version__ = _distribution_version("urlshortener")
+except PackageNotFoundError:  # pragma: no cover - a bare checkout
+    # Better an honest placeholder than a number that will disagree.
+    __version__ = "0+unknown"
 
 log = logging.getLogger(__name__)
 
