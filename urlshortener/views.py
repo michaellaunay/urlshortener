@@ -31,7 +31,7 @@ from .constants_and_globals import (
     _,
 )
 from .services import CodeExhausted, count_links, create_link, find_by_code, record_hit
-from .urlvalidation import InvalidURL
+from .urlvalidation import InvalidURL, to_wire_url
 
 log = logging.getLogger(__name__)
 
@@ -65,13 +65,20 @@ ERROR_MESSAGES = {
 }
 
 
-def _page_context(request, **extra):
-    """Values every rendering of the page needs."""
+def _page_context(request, with_count=True, **extra):
+    """Values every rendering of the page needs.
+
+    `with_count` exists for the 404 page. AUDIT 2026-08-22, finding
+    S-09: counting the links on every unknown path meant a scan of the
+    short-code space -- exactly what an enumerator does -- charged the
+    database one aggregate per miss, and made the 404 handler itself
+    fail when the database was unavailable.
+    """
     context = {
         "settings": request.app_settings,
         "languages": [(code, LANGUAGE_NAMES[code]) for code in AVAILABLE_LANGUAGES],
         "current_locale": request.locale_name,
-        "link_count": count_links(request.dbsession),
+        "link_count": count_links(request.dbsession) if with_count else None,
         "submitted_url": "",
         "short_url": None,
         "short_base": request.app_settings.base_url,
@@ -172,7 +179,11 @@ def redirect(request):
     if link is None:
         raise HTTPNotFound()
     record_hit(request.dbsession, link, request.app_settings)
-    response = HTTPFound(location=link.url)
+    # to_wire_url even though creation already stored a wire-safe form:
+    # the rows imported verbatim from the 2016 database never went
+    # through it, and one of them carrying a non-ASCII character would
+    # otherwise 500 on every single visit (audit finding S-01).
+    response = HTTPFound(location=to_wire_url(link.url))
     # Do not leak the short link (and therefore the visitor's path) to
     # the destination site.
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -217,4 +228,4 @@ def healthz(request):
 def notfound(request):
     """Unknown code, or unknown path. 404 either way."""
     request.response.status_int = 404
-    return _page_context(request)
+    return _page_context(request, with_count=False)

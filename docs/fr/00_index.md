@@ -18,6 +18,7 @@ de l'autre.
 | [05 — Migration depuis 2016](05_migration.md) | Reprendre `var/urls.db`, brancher KuneAgi |
 | [06 — Sécurité](06_securite.md) | Ce qui est vérifié, ce qui ne l'est pas |
 | [07 — SSO Keycloak (à venir)](07_sso_keycloak.md) | Feuille de route de l'itération suivante |
+| [Audits](audits/) | Audits de sécurité, datés et autoportants |
 
 ## En trois phrases
 

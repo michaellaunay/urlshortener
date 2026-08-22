@@ -15,7 +15,7 @@ from .constants_and_globals import AVAILABLE_LANGUAGES, AppSettings, DOMAIN
 from .locale_negotiation import locale_negotiator
 from .throttle import RateLimiter
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +100,9 @@ def main(global_config, **settings):
     limiter = RateLimiter(
         app_settings.throttle_max_creations, app_settings.throttle_window_seconds
     )
+    read_limiter = RateLimiter(
+        app_settings.throttle_max_reads, app_settings.throttle_window_seconds
+    )
 
     with Configurator(settings=settings, locale_negotiator=locale_negotiator) as config:
         config.include("pyramid_chameleon")
@@ -115,6 +118,7 @@ def main(global_config, **settings):
         # touching process state.
         config.add_request_method(lambda request: app_settings, "app_settings", reify=True)
         config.add_request_method(lambda request: limiter, "throttle", reify=True)
+        config.add_request_method(lambda request: read_limiter, "read_throttle", reify=True)
 
         config.add_subscriber(_add_security_headers, NewResponse)
         config.add_subscriber(_add_cors_headers, NewResponse)

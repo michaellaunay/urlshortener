@@ -27,7 +27,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "urlshortener"
-version = "2.0.0"
+version = "2.0.1"
 description = "URL shortener (Pyramid/SQLAlchemy) — successor of ecreall/urlshortener"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,14 @@ dependencies = [
     "zope.sqlalchemy>=3.1,<4",
     "transaction>=5.1,<6",
     "python-dotenv>=1.0.1,<2",
+    # NOTE (audit 2026-08-22, S-08): setuptools is a RUNTIME dependency
+    # here -- pyramid, zope-deprecation and zope-sqlalchemy declare it
+    # through pkg_resources -- so it ships in the image and pip-audit
+    # sees it. PYSEC-2026-3447 affects the resolved 81.0.0 and is fixed
+    # in 83.0.0, but pyramid 2.1 pins `setuptools<82`: the bump is
+    # IMPOSSIBLE without leaving pyramid 2.1. The advisory is therefore
+    # carried as a documented exception in .github/workflows/quality.yml
+    # and must be revisited at every pyramid release.
 ]
 
 [project.optional-dependencies]

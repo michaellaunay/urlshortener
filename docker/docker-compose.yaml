@@ -62,5 +62,16 @@ services:
     security_opt:
       - no-new-privileges:true
 
+    # Audit 2026-08-22, S-06. Waitress binds a high port as a non-root
+    # user and needs no Linux capability whatsoever, so drop them all.
+    cap_drop:
+      - ALL
+
+    # `read_only: true` (plus a tmpfs for /tmp) is the next step and is
+    # NOT enabled here: it has not been exercised against a real build
+    # in this environment, and shipping an untested hardening flag that
+    # breaks the first start is worse than not shipping it. Validate it
+    # in the smoke workflow, then turn it on.
+
 volumes:
   urlshortener-var:

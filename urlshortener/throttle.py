@@ -22,10 +22,24 @@ from collections import deque
 class RateLimiter:
     """Sliding window counter, `max_events` per `window_seconds` per key."""
 
-    def __init__(self, max_events: int, window_seconds: int, clock=time.monotonic):
+    #: Hard ceiling on the number of tracked keys. AUDIT 2026-08-22,
+    #: finding S-04: the key is the client address, which is
+    #: attacker-influenced (and fully attacker-controlled if the
+    #: trusted-proxy configuration is wrong). Without a ceiling, a scan
+    #: from many addresses grows this dictionary until the process is
+    #: killed -- a limiter that becomes the denial of service it was
+    #: meant to blunt. At the ceiling the OLDEST key is evicted: the
+    #: attacker can buy themselves a fresh budget, which is what the
+    #: proxy-level limit is for, but they cannot exhaust memory.
+    MAX_KEYS = 20000
+
+    def __init__(self, max_events: int, window_seconds: int, clock=time.monotonic,
+                 max_keys=None):
         self.max_events = max_events
         self.window_seconds = window_seconds
+        self.max_keys = self.MAX_KEYS if max_keys is None else max_keys
         self._clock = clock
+        # Insertion-ordered, so the first key is the oldest.
         self._events = {}
         self._lock = threading.Lock()
 
@@ -57,11 +71,17 @@ class RateLimiter:
             if len(events) >= self.max_events:
                 return False
             events.append(now)
-            # Opportunistic housekeeping: without it, a scan of many
-            # distinct addresses would leave one empty deque each.
-            if len(self._events) > 4096:
-                for stale_key in [k for k in self._events if not self._events[k]]:
-                    del self._events[stale_key]
+            if len(self._events) > self.max_keys:
+                # Drop expired entries first; evict the oldest only if
+                # that was not enough.
+                threshold = now - self.window_seconds
+                for stale in [
+                    key for key, seen in self._events.items()
+                    if not seen or seen[-1] <= threshold
+                ]:
+                    del self._events[stale]
+                while len(self._events) > self.max_keys:
+                    self._events.pop(next(iter(self._events)))
             return True
 
     def reset(self) -> None:

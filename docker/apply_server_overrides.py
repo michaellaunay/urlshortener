@@ -72,7 +72,13 @@ def main(argv=None) -> int:
     applied = apply_overrides(parser, os.environ)
 
     os.makedirs(os.path.dirname(os.path.abspath(destination)), exist_ok=True)
-    with open(destination, "w", encoding="utf-8") as handle:
+    # AUDIT 2026-08-22, finding S-07: this file lands on the DATA
+    # VOLUME and may carry a database URL with a password in it. Create
+    # it 0600 rather than inherit the umask -- and create it that way
+    # from the start, not with a chmod after the write, which would
+    # leave a window during which it is readable.
+    file_descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
         parser.write(handle)
 
     for variable, section, option, value in applied:

@@ -93,6 +93,14 @@ The application log does not write shortened URLs at INFO. Setting
 `sqlalchemy.engine` to INFO would write all of them — avoid that in
 production.
 
+## Audits
+
+- [22 August 2026 — internal audit](../fr/audits/20260822_audit_securite_interne.md)
+  (French; English mirror pending): one high finding (S-01, a
+  non-ASCII target served raw in `Location:` — a permanent 500 or a
+  mangled redirect), three medium, six low, four accepted risks. Every
+  fixable finding was fixed, each with its own regression test.
+
 ## Reporting a vulnerability
 
 `michaellaunay@logikascium.com`. Please do not open a public issue

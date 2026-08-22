@@ -83,6 +83,8 @@ def api_shorten(request):
 @view_config(route_name="api_link", request_method="GET", renderer="json")
 def api_link(request):
     """Public facts about one code. Does NOT count as a visit."""
+    if not request.read_throttle.allow(request.client_addr or "unknown"):
+        return _error(request, 429, "error_rate_limited", "Too many requests.")
     link = find_by_code(request.dbsession, request.matchdict["code"])
     if link is None:
         return _error(request, 404, "error_unknown_code", "No such short code.")

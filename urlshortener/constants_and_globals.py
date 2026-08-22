@@ -160,6 +160,12 @@ class AppSettings:
     #: Creations allowed per client address and per window.
     throttle_max_creations: int = 30
     throttle_window_seconds: int = 300
+    #: Reads of `/api/v1/links/{code}` allowed per address and window.
+    #: 0 = unlimited, which is the default: the endpoint is public and
+    #: read-only. Raise it above 0 to slow bulk enumeration of the
+    #: SHORT legacy codes (audit 2026-08-22, S-02). The redirect itself
+    #: is never limited -- that is the service's whole function.
+    throttle_max_reads: int = 0
     #: Send `Access-Control-Allow-Origin` on the JSON endpoints. The 2016
     #: service allowed '*' unconditionally; here it is an explicit list,
     #: '*' still being expressible.
@@ -215,6 +221,10 @@ class AppSettings:
             throttle_window_seconds=as_int(
                 get("throttle_window_seconds", "URLSHORTENER_THROTTLE_WINDOW"),
                 cls.throttle_window_seconds,
+            ),
+            throttle_max_reads=as_int(
+                get("throttle_max_reads", "URLSHORTENER_THROTTLE_MAX_READS"),
+                cls.throttle_max_reads,
             ),
             cors_origins=tuple(
                 as_list(get("cors_origins", "URLSHORTENER_CORS_ORIGINS"))

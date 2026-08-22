@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 #: One DNS label: letters, digits and hyphens, never leading or
 #: trailing, at most 63 characters.
@@ -65,6 +65,57 @@ def _host_is_private(host: str) -> bool:
         or address.is_multicast
         or address.is_unspecified
     )
+
+
+def to_wire_url(url: str) -> str:
+    """Return `url` in a form that can legally be put in a header.
+
+    AUDIT 2026-08-22, finding S-01. An HTTP field value is ASCII. WebOb
+    hands the header to waitress, which does `res.encode("latin-1")`,
+    so a target carrying non-ASCII characters produced one of two
+    outcomes, both bad:
+
+    * inside latin-1 (`münchen.example/café`): the UTF-8 was re-encoded
+      as latin-1 and the visitor was sent to a MANGLED address;
+    * outside latin-1 (Japanese, Cyrillic, an emoji): a hard
+      `UnicodeEncodeError`, i.e. a 500 with a traceback on EVERY visit
+      to that link, for ever, and an unauthenticated way for anyone to
+      flood the log.
+
+    The fix is to store, and to serve, the wire form: IDNA for the
+    host, percent-encoding for the rest. `%` is kept safe so an
+    already-encoded URL is not double-encoded -- `%20` stays `%20`
+    instead of becoming `%2520`.
+
+    Applied at creation (so new rows are stored wire-safe) AND at
+    redirect time (so the rows imported verbatim from 2016, which this
+    function never saw, cannot 500 either).
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+
+    host = parts.hostname or ""
+    try:
+        ascii_host = host.encode("idna").decode("ascii") if host else ""
+    except (UnicodeError, UnicodeDecodeError):
+        # Not encodable as IDNA: leave the authority alone rather than
+        # invent a destination. `normalise_url` refuses such hosts at
+        # creation; a legacy row carrying one keeps its own shape.
+        ascii_host = host
+
+    netloc = ascii_host
+    if parts.port:
+        netloc = "%s:%d" % (netloc, parts.port)
+
+    return urlunsplit((
+        parts.scheme,
+        netloc,
+        quote(parts.path, safe="/%:@!$&'()*+,;=~-._"),
+        quote(parts.query, safe="/%:@!$&'()*+,;=?~-._"),
+        quote(parts.fragment, safe="/%:@!$&'()*+,;=?~-._"),
+    ))
 
 
 def _split(candidate):
@@ -171,8 +222,8 @@ def normalise_url(raw, settings) -> str:
 
     # Rebuild from the parsed pieces: this drops nothing meaningful and
     # guarantees what is stored is what was parsed and checked.
-    normalised = urlunsplit(
-        (scheme, parts.netloc, parts.path, parts.query, parts.fragment)
+    normalised = to_wire_url(
+        urlunsplit((scheme, parts.netloc, parts.path, parts.query, parts.fragment))
     )
     if len(normalised) > settings.max_url_length:
         raise InvalidURL("error_url_too_long")

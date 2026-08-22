@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import zope.sqlalchemy
 from sqlalchemy import engine_from_config, event
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from .link import Link, SchemaVersion, url_digest, utcnow  # noqa: F401  (re-export)
@@ -43,11 +42,18 @@ def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
         cursor.close()
 
 
-event.listen(Engine, "connect", _enable_sqlite_foreign_keys)
-
-
 def get_engine(settings, prefix="sqlalchemy."):
-    return engine_from_config(settings, prefix)
+    """Build the engine and attach the SQLite pragmas TO IT.
+
+    AUDIT 2026-08-22, finding S-11: the listener used to be attached to
+    the `Engine` CLASS at import time, so importing this package
+    silently forced WAL and foreign-key enforcement on every other
+    SQLAlchemy engine in the same process. A library must not reconfigure
+    connections it was not given.
+    """
+    engine = engine_from_config(settings, prefix)
+    event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+    return engine
 
 
 def get_session_factory(engine):

@@ -96,6 +96,14 @@ Le journal applicatif n'écrit pas les URL raccourcies en INFO. Passer
 `sqlalchemy.engine` en INFO les écrirait toutes — à éviter en
 production.
 
+## Audits
+
+- [22 août 2026 — audit interne](audits/20260822_audit_securite_interne.md) :
+  une découverte haute (S-01, cible non-ASCII servie brute dans
+  `Location:` — 500 permanent ou redirection mutilée), trois moyennes,
+  six basses, quatre risques assumés. Toutes les découvertes
+  corrigeables l'ont été, avec un test de non-régression chacune.
+
 ## Signaler une faille
 
 `michaellaunay@logikascium.com`. Merci de ne pas ouvrir de ticket public

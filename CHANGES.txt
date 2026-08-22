@@ -1,6 +1,56 @@
 Changelog
 =========
 
+2.0.1 (2026-08-22) — internal security audit
+--------------------------------------------
+
+Findings and fixes from ``docs/fr/audits/20260822_audit_securite_interne.md``.
+One regression test per finding, in ``tests/test_audit_20260822.py``.
+
+- **S-01 (high, fixed)** A target carrying non-ASCII characters was
+  stored and served raw in ``Location:``. Waitress encodes the header
+  block as latin-1, so such a link answered **500 on every visit, for
+  ever** (Japanese, Cyrillic, emoji), or redirected to a MANGLED
+  address (latin-1 range). Targets are now stored and served in their
+  wire form: IDNA host, percent-encoded path, no double encoding. The
+  redirect re-applies it, because rows imported verbatim from 2016
+  never went through creation.
+- **S-02 (medium, mitigated + accepted)** Imported 2016 codes are one
+  to three characters and sequential, so the whole legacy corpus is
+  walkable. Added an optional read limit on the JSON API
+  (``urlshortener.throttle_max_reads``, 0 by default). Inherent to the
+  2016 design; the redirect is never limited.
+- **S-03 (medium, fixed)** ``import_legacy`` interpolated the file path
+  into a SQLite URI raw, so a path containing ``?`` silently dropped
+  ``mode=ro`` from the operator's rollback copy.
+- **S-04 (medium, fixed)** The rate limiter's key is the client
+  address; the dictionary had no ceiling, so a scan from many addresses
+  grew it until the process died. Hard cap with eviction.
+- **S-05 (low, fixed)** ``trusted_proxy_count`` is now explicit in
+  ``production.ini``: adding a CDN without raising it would hand the
+  rate-limiting key to the visitor.
+- **S-06 (low, partly applied)** ``cap_drop: ALL`` added to the compose
+  service. ``read_only`` documented but deliberately NOT enabled
+  untested.
+- **S-07 (low, fixed)** The derived ``var/runtime.ini`` may carry a
+  database password and lands on the data volume; it is created 0600.
+- **S-08 (low, documented exception)** PYSEC-2026-3447 hits setuptools
+  81, fixed in 83 — but pyramid 2.1 pins ``setuptools<82``, so the bump
+  is impossible without leaving pyramid 2.1. ``pip-audit`` carries one
+  named, dated exception; every other advisory still fails the job.
+- **S-09 (low, fixed)** The 404 page counted every link in the table,
+  so an enumeration scan charged one aggregate per miss and the handler
+  itself failed when the database was down.
+- **S-11 (low, fixed)** The SQLite pragmas were attached to the
+  SQLAlchemy ``Engine`` CLASS at import time, silently reconfiguring
+  every other engine in the process. Attached to our engine instead.
+
+Accepted risks, written down rather than fixed: the service is an open
+redirector by design (S-12), ``GET /?url=`` writes and carries no CSRF
+token (S-10, kept for 2016 clients), and no name is resolved at
+creation time, so DNS rebinding is not covered (S-13).
+
+
 2.0.0 (2026-08-22)
 ------------------
 

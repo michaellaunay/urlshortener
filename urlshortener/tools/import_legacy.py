@@ -30,9 +30,10 @@ Idempotent: a code already present is left untouched and counted as
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from pyramid.paster import bootstrap, setup_logging
 from sqlalchemy import select
@@ -68,8 +69,16 @@ class ImportReport:
 
 
 def read_legacy_rows(path):
-    """Yield `(id, code, url)` from the legacy file, opened read-only."""
-    uri = "file:%s?mode=ro" % path
+    """Yield `(id, code, url)` from the legacy file, opened read-only.
+
+    AUDIT 2026-08-22, finding S-03: the path used to be interpolated
+    into the URI raw. A path containing '?' -- or worse, a crafted one
+    ending in `?mode=rwc` -- turned the read-only guarantee off without
+    a word, and the tool would then be writing to the very file the
+    operator still needs for a rollback. Quoting the path keeps '?' a
+    character of the FILENAME rather than the start of URI parameters.
+    """
+    uri = "file:%s?mode=ro" % quote(os.path.abspath(path))
     connection = sqlite3.connect(uri, uri=True)
     try:
         connection.text_factory = str
