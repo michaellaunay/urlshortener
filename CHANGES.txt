@@ -1,6 +1,29 @@
 Changelog
 =========
 
+2.0.20 (2026-08-23) — the third gate closes for the first time (train 0020)
+----------------------------------------------------------------------------
+
+External audit (Claude, 2026-08-23), finding N-01.
+
+- **The Smoke workflow was YAML no parser accepts — since the very
+  first commit.** Its health check carried ``grep -q '"status": "ok"'``
+  in a PLAIN scalar, and the ``": "`` inside those quotes is, to YAML,
+  a mapping indicator: every conformant parser refuses the file at
+  line 33, and GitHub is one of them. An invalid workflow fails at
+  startup, before any job or check run exists — no red check beside the
+  green ones, only a badge nobody was watching. The one gate written to
+  validate the DEPLOYMENT therefore never ran once, across nineteen
+  trains, while the README announced three workflows. Third occurrence
+  of the pattern D-05 named: a gate that exists and never closes fails
+  nothing and protects nothing. The line is now a block scalar, and a
+  meta-test parses every file under ``.github/workflows/`` — PyYAML has
+  been in the test lock since D-05, so the check costs nothing new. On
+  the repaired file the workflow then ran for the first time in the
+  repository's history, and came back green: steps written nineteen
+  trains ago hold against today's compose stack unchanged.
+
+
 2.0.19 (2026-08-22) — the deployment files agree with each other (train 0019)
 ------------------------------------------------------------------------------
 
