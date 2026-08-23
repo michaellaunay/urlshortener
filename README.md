@@ -80,9 +80,10 @@ curl -I http://localhost:5123/h6QStqWsRk3   # 302 -> https://example.org/a/long/
   upgrade steps.
 - **Tested**: 534 tests, 91% coverage, three CI workflows (unit,
   quality, container smoke).
-- **Audited**: one internal pass and one external pass, both filed
-  under `docs/fr/audits/`, every fixable finding fixed with a
-  regression test of its own.
+- **Audited**: one internal pass and four external passes (three by
+  ChatGPT, one crossing pass by Claude), all filed under
+  `docs/fr/audits/`, every fixable finding fixed with a regression
+  test of its own.
 
 ## Documentation
 

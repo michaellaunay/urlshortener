@@ -1,6 +1,26 @@
 Changelog
 =========
 
+2.0.25 (2026-08-23) — file the third pass, and the pass that crossed it (train 0025)
+--------------------------------------------------------------------------------------
+
+- **Two audit passes join the record.** The code has cited "third
+  pass, finding E-01" and "audit N-01" since train 0018, while
+  ``docs/fr/audits/`` stopped at the second pass — findings fixed on
+  the strength of documents filed nowhere. The third ChatGPT pass (on
+  ``056ef3b``, 2.0.17) is filed as received, wrapped with its
+  provenance, its reserves and its train correspondence — E-01 to
+  E-04 being the identifiers assigned at fix time — and its one open
+  reservation, the CI status the connector could not see, points at
+  the crossing pass that elucidated it. The crossing Claude pass is
+  filed as delivered, with a dated follow-up section mapping N-01 to
+  N-05 onto trains 0020 to 0024 and noting the one decision that
+  remains. Both indexes gain their rows, and the README's audit line
+  counts again: one internal pass, four external. Nothing in either
+  report was rewritten — the rule of the directory is that a pass is
+  filed, then only ever cited.
+
+
 2.0.24 (2026-08-23) — the browser's door closes, the caller's stays open (train 0024)
 ---------------------------------------------------------------------------------------
 

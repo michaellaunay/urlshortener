@@ -13,11 +13,13 @@ a new pass that cites the previous one.
 | 2026-08-22 | Internal security audit | 1 high, 3 medium, 6 low, 4 accepted risks — every fixable finding fixed |
 | 2026-08-22 | External audit (ChatGPT) | 4 P0, 4 P1, 5 P2, 1 P3 — trains 0002 to 0010, one accepted risk |
 | 2026-08-22 | External audit, second pass | "Broadly solid" — 3 fixes (trains 0012 to 0014), 2 accepted risks, 3 decisions pending |
+| 2026-08-23 | External audit, third pass | 1 new P1 (systemd), 1 version regression, earlier points open — trains 0018 to 0019, CI reservation elucidated by the crossing pass |
+| 2026-08-23 | External crossing audit (Claude) | ChatGPT findings confirmed; N-01 (Smoke never executed), N-02, N-03, N-05 — trains 0020 to 0024, 1 decision remaining |
 
 ## Language parity
 
 The project's convention is that `docs/fr` and `docs/en` mirror each
-other. **Both reports are written in French only**; the full English
+other. **The reports are written in French only**; the full English
 translation is pending. Stated here rather than hidden, because a
 missing mirror an English reader discovers by clicking a dead link is
 worse than one the index warns about.
