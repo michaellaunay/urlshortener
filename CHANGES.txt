@@ -1,6 +1,37 @@
 Changelog
 =========
 
+2.0.22 (2026-08-23) — carry no setting the path cannot deliver (train 0022)
+-----------------------------------------------------------------------------
+
+External audit (Claude, 2026-08-23), finding N-02.
+
+- **Three variables in ``urlshortener.env.example`` were inert.**
+  ``URLSHORTENER_LISTEN``, ``URLSHORTENER_TRUSTED_PROXY`` and
+  ``URLSHORTENER_TRUSTED_PROXY_COUNT`` map onto ``[server:main]``,
+  and the only code performing that mapping —
+  ``docker/apply_server_overrides.py`` — runs in the container, never
+  under systemd: ``pserve`` reads the section straight from
+  ``production.ini``. An operator editing those lines in the unit's
+  environment file was silently ignored — the C-07/E-04 shape, "a
+  setting the operator believes in and that never arrives", in its
+  third home, and invisible out of the box because the shipped values
+  coincided with the .ini's own (``127.0.0.1:5123`` against
+  ``localhost:5123``). The three lines are gone; a comment says where
+  those settings actually live on bare metal, and that any
+  APPLICATION setting may be set here, because the application reads
+  those itself wherever it runs. A parity test closes the class
+  rather than the instance: every variable declared in the unit's
+  environment file must be one that something on the systemd path
+  actually reads. The other repair — deriving a runtime .ini through
+  ``apply_server_overrides.py`` in ``ExecStartPre``, as the container
+  does — was considered and declined: the container derives because
+  its .ini is baked read-only into an image, while bare metal's .ini
+  is the operator's own editable file, and a derived second copy
+  beside it is one more pair of files free to disagree — the very
+  disease this train family treats.
+
+
 2.0.21 (2026-08-23) — the flag lifts policy, never arithmetic (train 0021)
 ----------------------------------------------------------------------------
 

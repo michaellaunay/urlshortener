@@ -140,3 +140,36 @@ def test_e03_the_installed_version_matches_pyproject():
         "pyproject says %s, the installed distribution says %s — run "
         "`pip install --no-deps -e .`" % (declared, installed)
     )
+
+
+# -- N-02 -- the unit's environment carries only what its path reads -----
+#
+# External audit (Claude, 2026-08-23), finding N-02 — train 0022.
+
+def _bare_metal_read_variables():
+    """Environment variables SOMETHING on the systemd path reads: the
+    settings module, plus what the app factory itself consumes.
+    `docker/apply_server_overrides.py` is deliberately absent from
+    this computation — it runs in the container, never under systemd.
+    """
+    names = set(_settings_variables())
+    source = _read(ROOT, "urlshortener", "__init__.py")
+    names |= set(re.findall(r'"(SQLALCHEMY_URL|URLSHORTENER_[A-Z_]+)"', source))
+    return names
+
+
+def test_n02_the_unit_environment_only_carries_what_the_unit_reads():
+    """`URLSHORTENER_LISTEN` and the two trusted-proxy variables map
+    onto `[server:main]`, and the only code performing that mapping
+    runs in the container: under systemd, `pserve` reads the section
+    straight from `production.ini`. A variable declared here that
+    nothing on this path reads is a setting the operator believes in
+    and that never arrives — the C-07/E-04 shape, in its third home,
+    invisible out of the box because the shipped values coincided with
+    the .ini's own."""
+    declared = set(re.findall(r"^([A-Z][A-Z0-9_]*)=", _read(UNIT_ENV), re.MULTILINE))
+    inert = sorted(declared - _bare_metal_read_variables())
+    assert not inert, (
+        "declared in %s but read by nothing on the systemd path: %s"
+        % (os.path.basename(UNIT_ENV), inert)
+    )
