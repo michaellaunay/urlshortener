@@ -35,7 +35,10 @@ pas. Aucun drapeau ne les lève :
 | `reserved_code` | **Une route occupe déjà ce chemin** |
 | `empty_url` | Pas de cible |
 | `control_chars` | Un retour chariot devient une injection d'en-tête |
-| `scheme:javascript` (et `data`, `vbscript`) | Mettrait un vecteur d'attaque dans un `Location:` sous ton domaine |
+| `bad_port` | Aucun client n'accepte ce port — et le redirect le supprimerait en silence : autre destination |
+| `bad_host` | Aucun client ne résout cet hôte — et, non-ASCII irrécupérable, il ferait un 500 à chaque visite |
+| `credentials` | Ce qui précède `@` est un déguisement — ou un secret republié, quand c'est une vraie authentification |
+| `scheme:javascript` (et `data`, `vbscript`, `file`) | Mettrait un vecteur d'attaque — ou un chemin de fichier — dans un `Location:` sous ton domaine |
 
 `reserved_code` mérite un mot : `healthz` fait sept caractères de
 l'alphabet, donc `is_valid_code` le déclarait légal et il s'importait
@@ -49,8 +52,8 @@ issues sont d'accepter la perte, ou de déplacer la route.
 
 **Refus « policy »** — le lien fonctionne très bien, ce sont seulement
 les règles de la 2.x qui ne l'auraient pas créé aujourd'hui : schéma
-hors liste (`ftp:`), cible privée, hôte de la liste noire, port
-invalide, URL trop longue. Ceux-là, tu peux les reprendre en
+fonctionnel hors liste (`ftp:`), cible privée, hôte de la
+liste noire, URL trop longue. Ceux-là, tu peux les reprendre en
 connaissance de cause :
 
 ```bash

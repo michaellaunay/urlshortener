@@ -34,7 +34,10 @@ them.
 | `reserved_code` | **A route already answers on that path** |
 | `empty_url` | No target |
 | `control_chars` | A carriage return becomes header injection |
-| `scheme:javascript` (and `data`, `vbscript`) | Would put an attack vector in a `Location:` under your own domain |
+| `bad_port` | No client accepts the port — and the redirect would silently drop it: a different destination |
+| `bad_host` | No client resolves the host — and, non-ASCII and irrecoverable, it would 500 on every visit |
+| `credentials` | What precedes `@` is a disguise — or a republished secret, where it is real authentication |
+| `scheme:javascript` (and `data`, `vbscript`, `file`) | Would put an attack vector — or a file path — in a `Location:` under your own domain |
 
 `reserved_code` deserves a word: `healthz` is seven characters of the
 alphabet, so `is_valid_code` called it legal and it imported cleanly —
@@ -46,8 +49,9 @@ link, and only you can weigh a dead link against an unreachable one.
 The two ways out are accepting the loss, or moving the route.
 
 **Policy** — the link works perfectly well; only the 2.x rules would
-not have created it today: a scheme outside the allowlist (`ftp:`), a
-private target, a blocked host, an invalid port, an over-long URL.
+not have created it today: a functional scheme outside the
+allowlist (`ftp:`), a private target, a blocked host, an over-long
+URL.
 Those you can take back knowingly:
 
 ```bash

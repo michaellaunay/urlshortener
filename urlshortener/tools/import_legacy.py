@@ -40,7 +40,7 @@ from sqlalchemy import select
 
 from ..codec import RESERVED_CODES, is_valid_code
 from ..models import Link, url_digest, utcnow
-from ..urlvalidation import InvalidURL, normalise_url
+from ..urlvalidation import InvalidURL, canonical_host, normalise_url
 
 LEGACY_QUERY = "SELECT ID, NUM, URL FROM WEB_URL ORDER BY ID"
 
@@ -51,7 +51,14 @@ LEGACY_QUERY = "SELECT ID, NUM, URL FROM WEB_URL ORDER BY ID"
 #: own domain. `--allow-unsafe-legacy` deliberately does NOT reach
 #: them -- a flag that can import an XSS vector is not a flag, it is a
 #: trap laid for a future operator in a hurry.
-NEVER_IMPORTED_SCHEMES = frozenset({"javascript", "data", "vbscript"})
+#:
+#: `file` joined the set in train 0021 (audit N-03): a
+#: `Location: file://...` under this service's domain is indefensible
+#: -- no current browser follows it, and on an intranet it is a prompt
+#: at a path an attacker chose. A functional 2016 scheme (`ftp:`)
+#: remains a POLICY refusal; a file path was never a link this service
+#: should hand out.
+NEVER_IMPORTED_SCHEMES = frozenset({"javascript", "data", "vbscript", "file"})
 
 #: Refusals `--allow-unsafe-legacy` cannot lift, and why.
 #:
@@ -66,6 +73,12 @@ ALWAYS_REFUSED = {
     "reserved_code": "a route already answers on this path",
     "empty_url": "no target",
     "control_chars": "control characters become header injection",
+    # Train 0021 (audit N-03). These three used to be liftable, on the
+    # theory that they were policy. They are arithmetic -- see
+    # `_always_refused` for the mechanism behind each.
+    "bad_port": "no client accepts it, and the redirect would drop it",
+    "bad_host": "no client reaches it, and serving it can 500 forever",
+    "credentials": "userinfo is a disguise, or a republished secret",
 }
 
 
@@ -176,11 +189,60 @@ def _always_refused(code, url):
     if any(ord(char) < 0x20 or ord(char) == 0x7F for char in url):
         return "control_chars"
     try:
-        scheme = (urlsplit(url).scheme or "").lower()
+        parts = urlsplit(url)
     except ValueError:
-        return "control_chars"
+        # Python 3.11+ validates a bracketed literal itself:
+        # `http://[not-an-ipv6]/` raises here, before any check of
+        # ours -- and no client resolves it either.
+        return "bad_host"
+    scheme = (parts.scheme or "").lower()
     if scheme in NEVER_IMPORTED_SCHEMES:
         return "scheme:%s" % scheme
+    if parts.netloc:
+        # EXTERNAL AUDIT (Claude, 2026-08-23), finding N-03 --
+        # sharpening point 5 of the third ChatGPT pass. These three
+        # were liftable, on the theory that they were policy. They are
+        # arithmetic:
+        #
+        # * userinfo in the authority: for http(s), the part before
+        #   '@' is what the visitor reads and the part after is where
+        #   they go -- the dress-up refused at creation; for schemes
+        #   where userinfo is real authentication, importing the row
+        #   REPUBLISHES a credential to anyone who asks for the code;
+        # * an invalid port: no client accepts `:99999` -- and worse,
+        #   `to_wire_url` swallows the ValueError at redirect time
+        #   (the C-16 branch kept for rows already in the database)
+        #   and rebuilds the netloc WITHOUT the port, so the visitor
+        #   is sent to a DIFFERENT destination from the stored one.
+        #   The verbatim contract this tool exists to defend is
+        #   exactly what such a row cannot keep;
+        # * an irrecoverable host: a numeric-looking non-address is a
+        #   URL every client refuses (a dead link, the C-10 class),
+        #   and one carrying non-ASCII that IDNA cannot encode passes
+        #   through `to_wire_url` unchanged into `Location:` -- the
+        #   S-01 500-on-every-visit, fixed everywhere else, brought
+        #   back by an import flag. The check is deliberately the
+        #   creation-time one, `canonical_host` strict: one rule for
+        #   what is minted and what is imported, not two. The cost,
+        #   accepted: an ASCII host of unusual shape that some
+        #   browsers tolerate (an underscore, say) is swept in --
+        #   such a row is reported with its URL, and a hand decision
+        #   per odd row beats a flag that also lifts the 500s.
+        #
+        # The dividing rule is unchanged: the operator can overrule
+        # policy; they cannot overrule arithmetic. Private targets,
+        # blocked hosts, over-long URLs and old functional schemes
+        # remain theirs to take back.
+        if "@" in parts.netloc:
+            return "credentials"
+        try:
+            parts.port
+        except ValueError:
+            return "bad_port"
+        try:
+            canonical_host(parts.hostname or "", strict=True)
+        except InvalidURL:
+            return "bad_host"
     return None
 
 

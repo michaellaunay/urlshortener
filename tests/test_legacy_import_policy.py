@@ -10,6 +10,7 @@ The migration contract is unchanged and is what the first test here
 pins: URLs are stored VERBATIM. What this train adds is knowing which
 rows today's rules would refuse, and saying so.
 """
+import os
 import sqlite3
 
 import pytest
@@ -17,6 +18,7 @@ import pytest
 from urlshortener.constants_and_globals import AppSettings
 from urlshortener.models import Link
 from urlshortener.services import find_by_code
+from urlshortener.urlvalidation import to_wire_url
 from urlshortener.tools.import_legacy import (
     ALWAYS_REFUSED,
     NEVER_IMPORTED_SCHEMES,
@@ -113,7 +115,6 @@ def test_unfixable_rows_are_refused_whatever_the_flag(code, url, expected):
     "http://2130706433/admin",          # the same host, other spelling
     "https://evil.test/x",
     "https://deep.evil.test/x",
-    "http://example.org:99999/",
     "https://example.org/?q=" + "a" * 4000,
 ])
 def test_a_row_today_s_rules_would_refuse_is_classified_as_policy(url):
@@ -126,7 +127,7 @@ def test_a_row_today_s_rules_would_refuse_is_classified_as_policy(url):
     "ftp://example.org/file",
     "http://127.0.0.1/admin",
     "https://evil.test/x",
-    "http://example.org:99999/",
+    "https://example.org/?q=" + "a" * 4000,
 ])
 def test_the_flag_lifts_exactly_the_policy_refusals(url):
     reason, _always = classify("aa1", url, STRICT, allow_unsafe=True)
@@ -228,3 +229,78 @@ def test_the_unsafe_run_says_so_out_loud():
     from urlshortener.tools import import_legacy
 
     assert "NOT applied" in inspect.getsource(import_legacy.main)
+
+
+# -- N-03 -- the flag lifts policy, never arithmetic (train 0021) ---------
+#
+# External audit (Claude, 2026-08-23), finding N-03, sharpening point 5
+# of the third ChatGPT pass. `allow_unsafe` used to short-circuit
+# `normalise_url` entirely, so three refusals that are NOT policy were
+# liftable. The rule dividing the two kinds is the module's own: the
+# operator can overrule policy; they cannot overrule arithmetic.
+
+@pytest.mark.parametrize("url,expected", [
+    ("http://example.org:99999/", "bad_port"),
+    ("http://example.org:abc/", "bad_port"),
+    ("http://\u2603.example/x", "bad_host"),        # IDNA-disallowed
+    ("http://999999999999/", "bad_host"),           # numeric, not an address
+    ("http://[not-an-ipv6]/x", "bad_host"),
+    ("http://bank.example@evil.test/", "credentials"),
+    ("ftp://user:secret@mirror.example/pub", "credentials"),
+])
+def test_n03_arithmetic_refusals_survive_the_flag(url, expected):
+    for unsafe in (False, True):
+        reason, always = classify("aa1", url, LENIENT, allow_unsafe=unsafe)
+        assert (reason, always) == (expected, True), url
+
+
+def test_n03_an_at_sign_outside_the_authority_is_not_credentials():
+    """`mailto:someone@example.org` has no netloc: the '@' lives in the
+    path, and the row remains what it was — a policy refusal the flag
+    can take back."""
+    reason, always = classify(
+        "aa1", "mailto:someone@example.org", LENIENT, allow_unsafe=True
+    )
+    assert (reason, always) == (None, False)
+
+
+def test_n03_why_a_bad_port_is_arithmetic():
+    """The mechanism, pinned: `to_wire_url` swallows the ValueError a
+    bad port raises (the C-16 branch kept for rows already in the
+    database) and rebuilds the netloc WITHOUT the port. A visitor is
+    sent to a DIFFERENT destination from the stored one — the verbatim
+    contract is exactly what such a row cannot keep."""
+    assert to_wire_url("http://example.org:99999/x") == "http://example.org/x"
+
+
+def test_n03_why_an_irrecoverable_host_is_arithmetic():
+    """The other mechanism, pinned: a host IDNA cannot encode passes
+    through `to_wire_url` unchanged, so the Location header carries
+    non-ASCII — the S-01 500-on-every-visit, fixed everywhere else,
+    would come back through the import flag."""
+    assert not to_wire_url("http://\u2603.example/x").isascii()
+
+
+def test_n03_the_flag_run_still_refuses_the_arithmetic_rows(tmp_path, dbsession):
+    path = _legacy_file(tmp_path, [
+        ("pp1", "http://example.org:99999/"),
+        ("hh1", "http://\u2603.example/x"),
+        ("uu1", "http://bank.example@evil.test/"),
+        ("ok2", "http://127.0.0.1/admin"),
+    ])
+    report = import_rows(dbsession, read_legacy_rows(path), STRICT, allow_unsafe=True)
+    assert report.imported == 1
+    assert {code for code, _u, _r in report.refused_always} == {"pp1", "hh1", "uu1"}
+    assert find_by_code(dbsession, "ok2") is not None
+
+
+@pytest.mark.parametrize("chapter", ["fr/05_migration.md", "en/05_migration.md"])
+def test_n03_every_unliftable_reason_is_documented(chapter):
+    """`ALWAYS_REFUSED` stops being decorative: every reason the
+    classifier can hand back without appeal must appear in the table
+    the operator reads to decide what to do with the row."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, "docs", *chapter.split("/")), encoding="utf-8") as handle:
+        body = handle.read()
+    missing = [reason for reason in ALWAYS_REFUSED if "`%s`" % reason not in body]
+    assert not missing, "unliftable but undocumented in %s: %s" % (chapter, missing)

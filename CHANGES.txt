@@ -1,6 +1,42 @@
 Changelog
 =========
 
+2.0.21 (2026-08-23) — the flag lifts policy, never arithmetic (train 0021)
+----------------------------------------------------------------------------
+
+External audit (Claude, 2026-08-23), finding N-03 — sharpening point 5
+of the third ChatGPT pass, the last of its findings still open in the
+code.
+
+- **``--allow-unsafe-legacy`` could import rows that cannot work.** As
+  soon as the flag was set, ``classify()`` skipped ``normalise_url``
+  entirely, so three refusals that are not policy were liftable — and
+  each had a concrete mechanism waiting behind it. An invalid port
+  (``:99999``): no client accepts it, and ``to_wire_url`` swallows the
+  ValueError at redirect time (the C-16 branch kept for rows already
+  in the database) and rebuilds the netloc WITHOUT the port — the
+  visitor is sent to a different destination from the stored one,
+  which is precisely the verbatim contract the import exists to
+  defend. An irrecoverable host: a numeric-looking non-address is a
+  dead link in every client (the C-10 class), and one carrying
+  non-ASCII that IDNA cannot encode goes into ``Location:`` unchanged
+  — the S-01 500-on-every-visit, fixed everywhere else, brought back
+  by an import flag. Userinfo in the authority: a disguise for
+  http(s), a republished secret for schemes where it is real
+  authentication. All three now sit in ``ALWAYS_REFUSED``, and
+  ``file`` joins ``javascript``/``data``/``vbscript`` among the
+  schemes no flag reaches. What the flag still lifts is unchanged and
+  locked from both sides: private targets, blocked hosts, over-long
+  URLs, old functional schemes. The host check is deliberately the
+  creation-time one (``canonical_host`` strict) — one rule for what
+  is minted and what is imported, not two; the accepted cost, stated
+  in the code, is that an ASCII host of unusual shape some browsers
+  tolerate (an underscore, say) is swept in and left to a hand
+  decision per reported row. The migration chapters now carry every
+  unliftable reason in their tables, and a test keeps them from
+  drifting: ``ALWAYS_REFUSED`` stops being decorative.
+
+
 2.0.20 (2026-08-23) — the third gate closes for the first time (train 0020)
 ----------------------------------------------------------------------------
 
