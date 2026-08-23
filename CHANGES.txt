@@ -1,6 +1,36 @@
 Changelog
 =========
 
+2.0.23 (2026-08-23) — write down what GitHub must enforce (train 0023)
+------------------------------------------------------------------------
+
+External audit (Claude, 2026-08-23), governance step — the last item
+of the pass that is not an operating decision.
+
+- **The protection of ``main`` gets a ledger.** Host settings drift
+  silently, exactly like a deployment file: nobody re-reads them and
+  nothing fails when they change. Both security chapters now carry
+  the contract — four required checks by their exact names
+  (``tests (3.11)``, ``tests (3.12)``, ``quality`` and ``smoke``, the
+  fourth requirable since train 0020 put it on its feet), no force
+  pushes, no branch deletion, linear history, signatures on new
+  commits with the earlier history left as the audits cite it — and
+  the ``gh api`` commands that apply it, replayable verbatim. Two
+  locks hold the ledger: every required check must be named in both
+  chapters, and every documented check must correspond to a job the
+  workflows actually define — renaming a job silently unhooks the
+  required check on GitHub, so the rename fails in the suite instead,
+  with both places to update named in the same message.
+  Administrators are deliberately not enforced: the maintainer keeps
+  an emergency path, and the agent accounts, plain collaborators, are
+  fully bound. The delivery gesture changes with the contract and the
+  chapters say so: a fresh commit pushed straight to ``main`` is
+  refused, and the branch-then-auto-merge sequence that replaces it
+  is written next to the commands. The open-decisions list shrinks
+  from three to two: ``count_hits`` and the legacy GET's cut-off
+  date.
+
+
 2.0.22 (2026-08-23) — carry no setting the path cannot deliver (train 0022)
 -----------------------------------------------------------------------------
 

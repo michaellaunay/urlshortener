@@ -224,3 +224,47 @@ def test_the_systemd_unit_is_shipped_not_copied():
         assert "[Service]" not in chapter_body, (
             "%s embeds a second copy of the unit" % chapter
         )
+
+
+# -- governance: what GitHub must enforce is written down ------------------
+#
+# External audit (Claude, 2026-08-23), governance step — train 0023.
+
+REQUIRED_CHECK_CONTEXTS = ("tests (3.11)", "tests (3.12)", "quality", "smoke")
+
+
+@pytest.mark.parametrize("chapter", ["fr/06_securite.md", "en/06_security.md"])
+def test_governance_every_required_check_is_documented_by_name(chapter):
+    """The protection contract lives on GitHub, where nothing in this
+    repository can test it. What CAN be locked is the ledger: the
+    security chapter must name every required check exactly."""
+    body = _read(ROOT, "docs", *chapter.split("/"))
+    missing = [name for name in REQUIRED_CHECK_CONTEXTS if "`%s`" % name not in body]
+    assert not missing, "required on main, absent from %s: %s" % (chapter, missing)
+
+
+def test_governance_the_documented_checks_exist_in_the_workflows():
+    """Renaming a job silently unhooks the required check on GitHub:
+    the branch then waits, forever, for a context that will never
+    report again. The rename must fail HERE instead, with both places
+    to update named in the same message."""
+    yaml = pytest.importorskip("yaml")
+    contexts = set()
+    directory = os.path.join(ROOT, ".github", "workflows")
+    for name in sorted(os.listdir(directory)):
+        if not name.endswith((".yml", ".yaml")):
+            continue
+        with open(os.path.join(directory, name), encoding="utf-8") as handle:
+            document = yaml.safe_load(handle)
+        for job_id, job in (document.get("jobs") or {}).items():
+            matrix = (job.get("strategy") or {}).get("matrix") or {}
+            versions = matrix.get("python-version")
+            if versions:
+                contexts |= {"%s (%s)" % (job_id, version) for version in versions}
+            else:
+                contexts.add(job_id)
+    missing = [name for name in REQUIRED_CHECK_CONTEXTS if name not in contexts]
+    assert not missing, (
+        "required on main but no workflow job reports it — update the "
+        "branch protection AND this constant together: %s" % missing
+    )

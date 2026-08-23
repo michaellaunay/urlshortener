@@ -203,10 +203,81 @@ that cites the previous one.
 Every fixable finding was fixed with a regression test of its own, with
 a red/green demonstration train by train.
 
-**Three decisions remain open**, none of them a fix: the visit counter
-written on every redirect (`count_hits`), the date `GET /?url=` is
-switched off, and protecting the `main` branch with its three required
-checks. The detail is in the second pass.
+**Two decisions remain open**, none of them a fix: the visit counter
+written on every redirect (`count_hits`) and the date `GET /?url=` is
+switched off. Protecting the `main` branch — third on this list since
+the second pass — now has its contract, its commands and its lock in
+the \u201cRepository governance\u201d section below.
+
+## Repository governance
+
+Host settings drift silently, exactly like a deployment file: nobody
+re-reads them and nothing fails when they change. The contract
+protecting `main` is therefore written down here, with the commands
+that apply it — and a test ties the check names below to the jobs
+actually defined in `.github/workflows/`, because renaming a job
+silently unhooks the required check on GitHub under its old name: the
+branch would then wait, forever, for a check that will never report
+again.
+
+The contract:
+
+- four required checks before anything lands on `main`, under their
+  exact names: `tests (3.11)`, `tests (3.12)`, `quality` and `smoke`
+  — the fourth requirable since train 0020 put it on its feet;
+- force pushes and branch deletion refused; linear history required —
+  one commit per train, no merge commits;
+- signatures required on new commits. The earlier history stays
+  unsigned: rewriting it would change the SHAs the audits cite;
+- administrators are not enforced (`enforce_admins: false`): the
+  maintainer keeps an emergency path, and the agent accounts, plain
+  collaborators, are fully bound.
+
+The commands, replayable verbatim if the settings ever need to be
+rebuilt:
+
+```bash
+gh api -X PUT repos/michaellaunay/urlshortener/branches/main/protection \
+  --input - <<'JSON'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["tests (3.11)", "tests (3.12)", "quality", "smoke"]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_linear_history": true
+}
+JSON
+
+# Signatures: enable once every pushing account has a key. Squash
+# merges are signed by GitHub itself, so an agent delivering through
+# a squashed PR needs no key of its own.
+gh api -X POST \
+  repos/michaellaunay/urlshortener/branches/main/protection/required_signatures
+
+# Verification
+gh api repos/michaellaunay/urlshortener/branches/main/protection \
+  --jq '{contexts: .required_status_checks.contexts,
+         force: .allow_force_pushes.enabled,
+         signatures: .required_signatures.enabled}'
+```
+
+The assumed consequence for the delivery gesture: a fresh commit
+pushed straight to `main` is refused, its checks not having run yet.
+The gesture becomes:
+
+```bash
+git checkout -b train-00XX
+git push -u origin HEAD
+gh pr create --fill
+gh pr merge --auto --rebase   # merges by itself once all four pass
+```
+
+`--rebase` preserves the commit's signature and the linear history.
 
 ## Reporting a vulnerability
 

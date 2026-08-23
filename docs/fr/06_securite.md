@@ -211,11 +211,84 @@ revue plus tard donne lieu à une nouvelle passe qui cite la précédente.
 Chaque découverte corrigeable l'a été avec son propre test de
 non-régression, démonstration rouge/vert faite train par train.
 
-**Trois décisions restent ouvertes**, aucune n'étant un correctif :
+**Deux décisions restent ouvertes**, aucune n'étant un correctif :
 l'écriture du compteur de visites à chaque redirection
-(`count_hits`), la date de coupure de `GET /?url=`, et la protection
-de la branche `main` avec ses trois contrôles obligatoires. Le détail
-est dans la seconde passe.
+(`count_hits`) et la date de coupure de `GET /?url=`. La protection
+de la branche `main` — troisième de cette liste depuis la seconde
+passe — a désormais son contrat, ses commandes et son verrou dans la
+section « Gouvernance du dépôt » ci-dessous.
+
+## Gouvernance du dépôt
+
+Les réglages d'un hébergeur dérivent en silence, exactement comme un
+fichier de déploiement : personne ne les relit, rien n'échoue quand ils
+changent. Le contrat de protection de `main` est donc consigné ici,
+avec les commandes qui l'appliquent — et un test lie les noms de
+contrôles ci-dessous aux jobs réellement définis dans
+`.github/workflows/`, parce que renommer un job décroche le contrôle
+requis côté GitHub sous son ancien nom : la branche attendrait alors,
+pour toujours, un contrôle qui ne rendra plus jamais compte.
+
+Le contrat :
+
+- quatre contrôles obligatoires avant toute arrivée sur `main`, sous
+  leurs noms exacts : `tests (3.11)`, `tests (3.12)`, `quality` et
+  `smoke` — le quatrième est exigible depuis le train 0020, qui l'a
+  mis sur pied ;
+- poussées forcées et suppression de branche refusées ; historique
+  linéaire exigé — un commit par train, pas de commit de fusion ;
+- signatures exigées sur les nouveaux commits. L'historique antérieur
+  reste non signé : le réécrire changerait les SHA que les audits
+  citent ;
+- les administrateurs ne sont pas soumis (`enforce_admins: false`) :
+  le mainteneur garde une voie d'urgence, et les comptes d'agents,
+  simples collaborateurs, sont pleinement liés.
+
+Les commandes, à rejouer telles quelles si les réglages doivent être
+reconstruits :
+
+```bash
+gh api -X PUT repos/michaellaunay/urlshortener/branches/main/protection \
+  --input - <<'JSON'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["tests (3.11)", "tests (3.12)", "quality", "smoke"]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_linear_history": true
+}
+JSON
+
+# Signatures : à activer une fois chaque compte qui pousse muni d'une
+# clé. Les fusions « squash » sont signées par GitHub lui-même ; un
+# agent qui livre par PR squashée n'a donc pas besoin de clé propre.
+gh api -X POST \
+  repos/michaellaunay/urlshortener/branches/main/protection/required_signatures
+
+# Vérification
+gh api repos/michaellaunay/urlshortener/branches/main/protection \
+  --jq '{contexts: .required_status_checks.contexts,
+         force: .allow_force_pushes.enabled,
+         signatures: .required_signatures.enabled}'
+```
+
+Conséquence assumée sur le geste de livraison : un commit neuf poussé
+directement sur `main` est refusé, ses contrôles n'ayant pas encore
+tourné. Le geste devient :
+
+```bash
+git checkout -b train-00XX
+git push -u origin HEAD
+gh pr create --fill
+gh pr merge --auto --rebase   # fusionne seul quand les quatre passent
+```
+
+`--rebase` préserve la signature du commit et l'historique linéaire.
 
 ## Signaler une faille
 
