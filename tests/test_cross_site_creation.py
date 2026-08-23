@@ -156,15 +156,15 @@ def test_d02_reads_are_not_affected(testapp):
     testapp.get("/", headers={"Sec-Fetch-Site": "cross-site"}, status=200)
 
 
-def test_d02_the_legacy_get_remains_the_wider_hole(testapp):
-    """Told plainly rather than left implicit: `GET /?url=` is reachable
-    from an `<img>` tag, which no header check can distinguish from a
-    legitimate navigation. It is guarded by nothing here, and closing
-    it is `enable_legacy_get = false` — a decision with a date, not a
-    patch (train 0010)."""
+def test_d02_the_legacy_get_is_no_longer_the_wider_hole(testapp):
+    """Train 0013 pinned the hole itself, on a premise that was wrong:
+    "no header check can distinguish an `<img>` from a legitimate
+    navigation" — `Sec-Fetch-Site` distinguishes exactly that, and
+    train 0024 (audit N-05) wired it here. The lock now holds the
+    guard instead; the wider-hole title retires with the hole."""
     response = testapp.get(
         "/", params={"url": "https://example.org/j"},
-        headers={"Sec-Fetch-Site": "cross-site"},
+        headers={"Sec-Fetch-Site": "cross-site"}, status=403,
     )
-    assert response.json["code"] == "SUCCESS"
+    assert response.json["error"] == "error_cross_site"
     assert response.headers["Deprecation"] == "true"

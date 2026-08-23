@@ -159,3 +159,79 @@ def test_the_container_forwards_the_switch():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(root, "docker/docker-compose.yaml"), encoding="utf-8") as handle:
         assert "URLSHORTENER_ENABLE_LEGACY_GET" in handle.read()
+
+
+# -- N-05 -- the browser's door closes, the caller's stays open (0024) ----
+#
+# External audit (Claude, 2026-08-23), finding N-05. Of the C-09
+# triptych, this closes the one branch that can close while the
+# endpoint lives: the drive-by. The D-02 guard was built precisely for
+# sessionless creations — and it stood in front of every entry point
+# except the one a third-party page can drive with a bare <img>.
+
+def test_n05_a_cross_site_get_creates_nothing(testapp):
+    before = testapp.get("/healthz").json["links"]
+    response = testapp.get(
+        "/", params={"url": "https://example.org/driveby"},
+        headers={"Sec-Fetch-Site": "cross-site"}, status=403,
+    )
+    assert response.json == {
+        "code": "ERROR",
+        "error": "error_cross_site",
+        "original_url": "https://example.org/driveby",
+    }
+    assert response.headers["Deprecation"] == "true"
+    assert testapp.get("/healthz").json["links"] == before
+
+
+@pytest.mark.parametrize("site", ["none", "same-origin", "same-site"])
+def test_n05_a_legitimate_fetch_site_still_creates(testapp, site):
+    payload = testapp.get(
+        "/", params={"url": "https://example.org/ok-%s" % site},
+        headers={"Sec-Fetch-Site": site},
+    ).json
+    assert payload["code"] == "SUCCESS"
+
+
+def test_n05_the_server_side_caller_is_untouched(testapp):
+    """KuneAgi calls server-to-server and sends no Sec-Fetch-Site; so
+    does curl. The guard fails open for them by construction — the
+    attack lives in current browsers, which always send the header and
+    let a page neither remove nor choose it."""
+    payload = testapp.get("/", params={"url": "https://example.org/kuneagi"}).json
+    assert payload["code"] == "SUCCESS"
+
+
+def test_n05_a_refused_drive_by_does_not_pollute_the_migration_signal(testapp, caplog):
+    """`grep -c 'legacy GET /?url= used'` is the switch-off criterion.
+    If a drive-by counted as a use, every scanner and every hostile
+    page would keep the endpoint alive for ever. The refusal gets a
+    line of its own instead."""
+    with caplog.at_level(logging.INFO, logger="urlshortener.views"):
+        testapp.get(
+            "/", params={"url": "https://example.org/x"},
+            headers={"Sec-Fetch-Site": "cross-site"}, status=403,
+        )
+    messages = [record.getMessage() for record in caplog.records]
+    assert not any("legacy GET /?url= used" in message for message in messages)
+    assert any("legacy GET /?url= refused: cross-site" in message
+               for message in messages)
+
+
+def test_n05_a_drive_by_does_not_spend_the_visitor_s_budget():
+    """Part of C-09's harm was the rate limit spread across strangers:
+    pages the visitor merely viewed spent the visitor's budget. The
+    guard sits BEFORE the throttle, so a refused drive-by costs the
+    visitor nothing."""
+    app = _app_with(**{"urlshortener.throttle_max_creations": "1"})
+    client = webtest.TestApp(app)
+    try:
+        client.get(
+            "/", params={"url": "https://example.org/a"},
+            headers={"Sec-Fetch-Site": "cross-site"}, status=403,
+        )
+        payload = client.get("/", params={"url": "https://example.org/b"}).json
+        assert payload["code"] == "SUCCESS"
+    finally:
+        Base.metadata.drop_all(app.registry["dbengine"])
+        app.registry["dbengine"].dispose()

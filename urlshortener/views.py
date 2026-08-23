@@ -286,6 +286,34 @@ def _legacy_get_json(request, raw_url):
             "original_url": raw_url,
         }
 
+    # EXTERNAL AUDIT (Claude, 2026-08-23), finding N-05. Of the C-09
+    # triptych, this closes the one branch that can close while the
+    # endpoint lives: the drive-by. A third-party page could create
+    # links with a bare `<img src=".../?url=...">` — at its visitors'
+    # addresses, spending their budgets — and the D-02 guard, built
+    # precisely for sessionless creations, stood in front of every
+    # entry point except this one. A current browser always sends
+    # Sec-Fetch-Site and a page can neither remove nor choose it; a
+    # server-side caller — KuneAgi — sends nothing and fails open.
+    #
+    # Placement is the other half of the finding. BEFORE the throttle:
+    # a page the visitor merely viewed must not spend the visitor's
+    # budget. BEFORE the "used" line: a drive-by is not a caller
+    # migrating, and counted as a use it would keep the endpoint
+    # alive for ever — refusals get a line of their own instead.
+    if cross_site_creation(request):
+        log.info(
+            "legacy GET /?url= refused: cross-site (referer=%r)",
+            request.headers.get("Referer", ""),
+        )
+        _mark_deprecated(request)
+        request.response.status_int = 403
+        return {
+            "code": "ERROR",
+            "error": "error_cross_site",
+            "original_url": raw_url,
+        }
+
     # One line per use, deliberately. The target is NOT logged: it is
     # already in the query string of the access log, and repeating it
     # here would put it in a second place for no gain.

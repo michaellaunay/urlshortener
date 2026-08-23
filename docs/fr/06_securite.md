@@ -130,10 +130,14 @@ peut les poster **sans préflight**, donc les accepter rendait la liste
 `cors_origins` décorative. Seule la création est gardée ; suivre un
 lien court depuis n'importe quel site reste l'usage normal.
 
-Limite connue et assumée : `GET /?url=` reste atteignable depuis une
-balise `<img>`, qu'aucun contrôle d'en-tête ne distingue d'une
-navigation légitime. Le fermer, c'est `enable_legacy_get = false`
-(chapitre 02).
+Limite connue, réduite au train 0024 : la garde `Sec-Fetch-Site`
+refuse désormais `GET /?url=` porté cross-site par un navigateur — la
+balise `<img>` d'une page tierce envoie `cross-site`, une navigation
+légitime `none`, et une page ne peut ni retirer ni choisir cet
+en-tête. Restent atteignables : l'inclusion depuis le même site
+(couverte par la confiance `same-site` de D-02) et les clients
+non-navigateurs, qui n'envoient rien. Le fermer entièrement reste
+`enable_legacy_get = false` (chapitre 02).
 
 **CORS** : rien par défaut, liste explicite sinon.
 

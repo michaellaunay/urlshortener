@@ -48,8 +48,7 @@ langue anglaise — on branche sur l'identifiant, on affiche le message.
 
 #### Ce point d'entrée est en voie d'extinction
 
-C'est un **GET qui écrit**, et trois choses en découlent, dont aucune
-n'est réparable en le gardant :
+C'est un **GET qui écrit**, et trois choses en découlaient :
 
 1. le préchargement d'un navigateur, un robot d'indexation, un scanner
    ou une simple balise `<img src="…">` sur n'importe quelle page tierce
@@ -62,6 +61,18 @@ n'est réparable en le gardant :
    endroits. `POST /api/v1/shorten` la met dans un corps, qu'aucun de
    ces trois n'enregistre ;
 3. aucun préflight ne s'interpose entre une page tierce et lui.
+
+Depuis le train 0024, la garde `Sec-Fetch-Site` du formulaire (D-02)
+s'applique aussi ici : un appel **cross-site porté par un navigateur**
+— la balise `<img>` d'une page tierce, un préchargement — reçoit `403`
+avec l'identifiant `error_cross_site`, dans la forme de corps de 2016,
+et ne crée rien ni ne dépense le budget du visiteur. Un appelant côté
+serveur (KuneAgi, `curl`) n'envoie pas cet en-tête et passe comme
+avant. Les refus produisent leur propre ligne de journal
+(`legacy GET /?url= refused: cross-site`) et ne comptent pas comme des
+usages : le critère de coupure ci-dessous reste propre. Restent,
+irréparables en le gardant : le GET à effet de bord pour les clients
+non-navigateurs, et la cible en chaîne de requête (2).
 
 Il reste **actif par défaut** : KuneAgi l'appelle, et la première
 promesse de ce projet est que rien d'écrit contre le service de 2016 ne

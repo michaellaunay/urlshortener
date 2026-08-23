@@ -48,8 +48,7 @@ sentence — branch on the identifier, display the message.
 
 #### This entry point is on its way out
 
-It is a **GET that writes**, and three things follow, none of which is
-fixable while keeping it:
+It is a **GET that writes**, and three things followed:
 
 1. browser prefetch, crawlers, scanners and a plain `<img src="…">` on
    any third-party page all create links — at the **visitor's** address
@@ -61,6 +60,17 @@ fixable while keeping it:
    clear in three places. `POST /api/v1/shorten` puts it in a body,
    which none of the three records;
 3. no preflight stands between a third-party page and it.
+
+Since train 0024, the form's `Sec-Fetch-Site` guard (D-02) applies
+here too: a **browser-borne cross-site** call — a third-party page's
+`<img>` tag, a prefetch — gets `403` with the `error_cross_site`
+identifier, in the 2016 body shape, and neither creates anything nor
+spends the visitor's budget. A server-side caller (KuneAgi, `curl`)
+sends no such header and passes as before. Refusals log a line of
+their own (`legacy GET /?url= refused: cross-site`) and do not count
+as uses: the switch-off criterion below stays clean. What remains,
+unfixable while keeping it: the side-effecting GET for non-browser
+clients, and the query-string target (2).
 
 It stays **on by default**: KuneAgi calls it, and this project's first
 promise is that nothing written against the 2016 service breaks. Every

@@ -126,9 +126,13 @@ preflight**, so accepting them made the `cors_origins` list decorative.
 Only creation is guarded; following a short link from any site remains
 the normal use.
 
-Known and accepted limit: `GET /?url=` is still reachable from an
-`<img>` tag, which no header check can tell from a legitimate
-navigation. Closing it is `enable_legacy_get = false` (chapter 02).
+Known limit, narrowed by train 0024: the `Sec-Fetch-Site` guard now
+refuses a browser-borne cross-site `GET /?url=` — a third-party
+page's `<img>` sends `cross-site`, a legitimate navigation `none`,
+and a page can neither remove nor choose the header. Still reachable:
+same-site inclusion (covered by D-02's `same-site` trust) and
+non-browser clients, which send nothing. Closing it entirely remains
+`enable_legacy_get = false` (chapter 02).
 
 **CORS**: nothing by default, an explicit list otherwise.
 

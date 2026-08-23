@@ -224,8 +224,8 @@ class AppSettings:
     count_hits: bool = True
     #: Serve `GET /?url=...`, the 2016 entry point that CREATES a link.
     #:
-    #: EXTERNAL AUDIT 2026-08-22, finding C-09. Three things are wrong
-    #: with it, and none of them is fixable while keeping it:
+    #: EXTERNAL AUDIT 2026-08-22, finding C-09. Three things were wrong
+    #: with it:
     #:
     #: 1. a GET that writes. Browser prefetch, crawlers, scanners and a
     #:    plain `<img src="...">` on any third-party page all create
@@ -236,6 +236,13 @@ class AppSettings:
     #:    monitoring reads either. `POST /api/v1/shorten` puts it in a
     #:    body, which none of those record;
     #: 3. no CORS preflight stands between a third-party page and it.
+    #:
+    #: Train 0024 (audit N-05) closed what can close while the endpoint
+    #: lives: the D-02 guard now refuses a browser-borne cross-site
+    #: call, so 3 -- and the third-party half of 1 -- are gone in every
+    #: current browser, while a server-side caller sends no
+    #: Sec-Fetch-Site and is untouched. What remains is structural: a
+    #: GET with a side effect for non-browser clients, and 2 entirely.
     #:
     #: Default TRUE all the same: KuneAgi calls it, and this project's
     #: first promise is that nothing written against the 2016 service

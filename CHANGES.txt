@@ -1,6 +1,35 @@
 Changelog
 =========
 
+2.0.24 (2026-08-23) — the browser's door closes, the caller's stays open (train 0024)
+---------------------------------------------------------------------------------------
+
+External audit (Claude, 2026-08-23), finding N-05.
+
+- **The legacy GET refuses the drive-by.** Of the C-09 triptych — a
+  GET that writes, the target in the query string, no preflight in
+  front of a third-party page — the first two fall only with the
+  endpoint; the third had its guard since D-02, wired to every entry
+  point except the one a third-party page can drive with a bare
+  ``<img>``. ``cross_site_creation`` now runs on ``GET /?url=`` too: a
+  browser-borne cross-site call gets 403 ``error_cross_site`` in the
+  2016 body shape and creates nothing; a server-side caller — KuneAgi,
+  ``curl`` — sends no ``Sec-Fetch-Site`` and is untouched. Placement
+  is the finding's other half: BEFORE the throttle, because a page
+  the visitor merely viewed must not spend the visitor's budget, and
+  BEFORE the "used" log line, because a drive-by is not a caller
+  migrating — counted as a use, every hostile page would keep the
+  endpoint alive for ever; refusals log a line of their own. Two
+  pieces of the repository asserted the hole on a false premise —
+  "no header check can tell an ``<img>`` from a legitimate
+  navigation", which ``Sec-Fetch-Site`` tells exactly: the security
+  chapters' accepted-limit paragraph, rewritten to say what actually
+  remains reachable (same-site inclusion, non-browser clients), and a
+  train-0013 test that PINNED the vulnerable behaviour, now replaced
+  by its inverse. The switch-off criterion is untouched and cleaner
+  than before.
+
+
 2.0.23 (2026-08-23) — write down what GitHub must enforce (train 0023)
 ------------------------------------------------------------------------
 
