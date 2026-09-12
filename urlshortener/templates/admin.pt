@@ -1,0 +1,64 @@
+<div metal:use-macro="load: layout.pt"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+      i18n:domain="urlshortener">
+<div metal:fill-slot="content">
+  <h1 i18n:translate="admin_title">Administration</h1>
+
+  <p class="notice notice-error" role="alert"
+     tal:condition="admin_error">${admin_error}</p>
+
+  <form class="shorten" method="get" action="${request.route_path('admin')}">
+    <label for="q" i18n:translate="admin_search_label">Code or part of a target</label>
+    <input class="field" type="text" id="q" name="q" value="${query}" />
+    <button class="button" type="submit" i18n:translate="admin_search_button">Search</button>
+  </form>
+
+  <table class="admin-links">
+    <thead>
+      <tr>
+        <th i18n:translate="admin_col_code">Code</th>
+        <th i18n:translate="admin_col_target">Target</th>
+        <th i18n:translate="admin_col_hits">Hits</th>
+        <th i18n:translate="admin_col_email">Requested by</th>
+        <th i18n:translate="admin_col_state">State</th>
+        <th i18n:translate="admin_col_actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr tal:repeat="link links">
+        <td><a href="${short_url(link.code)}">${link.code}</a></td>
+        <td class="target">${link.url}</td>
+        <td>${link.hits}</td>
+        <td>${link.requested_by_email or '—'}</td>
+        <td tal:condition="link.blocked_at" i18n:translate="admin_state_blocked">blocked</td>
+        <td tal:condition="not link.blocked_at" i18n:translate="admin_state_active">active</td>
+        <td class="actions">
+          <form method="post" action="${request.route_path('admin_action')}">
+            <input type="hidden" name="code" value="${link.code}" />
+            <input type="hidden" name="q" value="${query}" />
+            <button type="submit" name="action" value="block"
+                    tal:condition="not link.blocked_at"
+                    i18n:translate="admin_action_block">Block</button>
+            <button type="submit" name="action" value="unblock"
+                    tal:condition="link.blocked_at"
+                    i18n:translate="admin_action_unblock">Unblock</button>
+            <button type="submit" name="action" value="delete"
+                    i18n:translate="admin_action_delete">Delete</button>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <nav class="pager">
+    <a tal:condition="page"
+       href="${request.route_path('admin', _query={'q': query, 'page': page - 1})}"
+       i18n:translate="admin_prev">Previous</a>
+    <a tal:condition="has_next"
+       href="${request.route_path('admin', _query={'q': query, 'page': page + 1})}"
+       i18n:translate="admin_next">Next</a>
+  </nav>
+</div>
+</div>

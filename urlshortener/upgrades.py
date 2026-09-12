@@ -25,7 +25,7 @@ from sqlalchemy import select
 from .models import Base, SchemaVersion, utcnow
 
 #: Bump when a step is added. Must equal the highest step number.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def _step_1(dbsession) -> None:
@@ -33,10 +33,32 @@ def _step_1(dbsession) -> None:
     return None
 
 
+def _step_2(dbsession) -> None:
+    """Whitelist/e-mail/admin columns (train 0026).
+
+    `create_all` adds the columns on a FRESH database; this step adds
+    them to one that already exists. `ADD COLUMN` with a NULL default
+    is safe on SQLite and PostgreSQL alike, and checking the catalogue
+    first makes the step idempotent even against a database that
+    already has them.
+    """
+    from sqlalchemy import inspect, text
+
+    connection = dbsession.connection()
+    existing = {column["name"] for column in inspect(connection).get_columns("links")}
+    if "blocked_at" not in existing:
+        connection.execute(text("ALTER TABLE links ADD COLUMN blocked_at TIMESTAMP NULL"))
+    if "requested_by_email" not in existing:
+        connection.execute(
+            text("ALTER TABLE links ADD COLUMN requested_by_email VARCHAR(254) NULL")
+        )
+
+
 #: Step number -> callable. Contiguity is asserted at import time, so a
 #: missing number is a failure here and not a silent skip in production.
 UPGRADE_STEPS = {
     1: _step_1,
+    2: _step_2,
 }
 
 assert sorted(UPGRADE_STEPS) == list(range(1, SCHEMA_VERSION + 1)), (

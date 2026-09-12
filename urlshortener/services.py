@@ -40,7 +40,7 @@ def find_by_url(dbsession, normalised_url: str):
     ).scalar_one_or_none()
 
 
-def create_link(dbsession, raw_url, settings):
+def create_link(dbsession, raw_url, settings, requested_by_email=None):
     """Shorten `raw_url`. Returns `(link, created)`.
 
     `created` is False when the URL was already known: the 2016 service
@@ -61,6 +61,7 @@ def create_link(dbsession, raw_url, settings):
     for _attempt in range(max(1, settings.code_max_attempts)):
         link = Link(
             code=generate_code(settings.code_length),
+            requested_by_email=requested_by_email,
             url=url,
             url_sha256=digest,
             created_at=utcnow(),
@@ -111,3 +112,43 @@ def count_links(dbsession) -> int:
     from sqlalchemy import func
 
     return int(dbsession.execute(select(func.count(Link.id))).scalar_one() or 0)
+
+
+def block_link(dbsession, link) -> None:
+    """Stop a link without deleting its row.
+
+    Deleting frees the target for immediate re-creation: the same
+    litigious URL, shortened again ten seconds later, gets a fresh code
+    and the administrator starts over. Blocking keeps the row, so
+    de-duplication returns the BLOCKED link to whoever tries — the 410
+    is the answer for the old code and for every new attempt alike.
+    """
+    if link.blocked_at is None:
+        link.blocked_at = utcnow()
+        dbsession.flush()
+
+
+def unblock_link(dbsession, link) -> None:
+    if link.blocked_at is not None:
+        link.blocked_at = None
+        dbsession.flush()
+
+
+def delete_link(dbsession, link) -> None:
+    """Remove the row entirely. The administrator's second option, for
+    rows that should not even exist as evidence — with the re-creation
+    consequence documented on `block_link`."""
+    dbsession.delete(link)
+    dbsession.flush()
+
+
+def list_links(dbsession, query="", limit=50, offset=0):
+    """The administrator's view: newest first, filtered on the code
+    (exact) or the target (substring)."""
+    statement = select(Link).order_by(Link.created_at.desc(), Link.id.desc())
+    if query:
+        pattern = "%%%s%%" % query
+        statement = statement.where((Link.code == query) | Link.url.like(pattern))
+    return list(
+        dbsession.execute(statement.limit(limit).offset(offset)).scalars()
+    )

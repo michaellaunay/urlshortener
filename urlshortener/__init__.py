@@ -15,6 +15,7 @@ from pyramid.events import NewResponse
 
 from .constants_and_globals import AVAILABLE_LANGUAGES, AppSettings, DOMAIN
 from .locale_negotiation import locale_negotiator
+from .mailer import SMTPMailer
 from .throttle import RateLimiter
 
 # EXTERNAL AUDIT, third pass, finding E-03. This was a hard-coded
@@ -154,6 +155,11 @@ def main(global_config, **settings):
         # can build an application with different settings without
         # touching process state.
         config.add_request_method(lambda request: app_settings, "app_settings", reify=True)
+        # One door for outgoing mail; the tests hang a recorder here.
+        config.registry["mailer"] = SMTPMailer(app_settings)
+        config.add_request_method(
+            lambda request: request.registry["mailer"], "mailer", reify=True
+        )
         config.add_request_method(lambda request: limiter, "throttle", reify=True)
         config.add_request_method(lambda request: read_limiter, "read_throttle", reify=True)
 
@@ -162,6 +168,7 @@ def main(global_config, **settings):
 
         config.scan(".views")
         config.scan(".api")
+        config.scan(".admin")
 
         log.info(
             "urlshortener %s ready — base_url=%s, languages=%s, domain=%s",

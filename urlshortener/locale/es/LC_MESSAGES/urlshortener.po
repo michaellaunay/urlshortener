@@ -166,3 +166,23 @@ msgstr "Esa solicitud es demasiado grande."
 #: urlshortener/views.py
 msgid "error_cross_site"
 msgstr "Este formulario no se puede enviar desde otro sitio web."
+
+#: urlshortener/views.py
+msgid "error_url_not_whitelisted"
+msgstr "Este destino no está en la lista blanca. Introduzca su dirección de correo y recibirá el enlace corto."
+
+#: urlshortener/views.py
+msgid "error_email_invalid"
+msgstr "Esto no parece una dirección de correo válida."
+
+#: urlshortener/views.py
+msgid "error_mail_failed"
+msgstr "No se pudo enviar el enlace corto. No se entregó nada; inténtelo de nuevo más tarde."
+
+#: urlshortener/views.py
+msgid "mail_short_link_subject"
+msgstr "Su enlace corto"
+
+#: urlshortener/views.py
+msgid "mail_short_link_body"
+msgstr "Aquí está el enlace corto que solicitó:\n\n  ${short_url}\n\nApunta a:\n\n  ${target}\n\nSi no lo solicitó, ignore este mensaje; no se hizo nada más con su dirección."

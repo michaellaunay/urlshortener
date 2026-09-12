@@ -139,6 +139,20 @@ en-tête. Restent atteignables : l'inclusion depuis le même site
 non-navigateurs, qui n'envoient rien. Le fermer entièrement reste
 `enable_legacy_get = false` (chapitre 02).
 
+**Flux e-mail** : deux risques nommés. C'est un point d'envoi de
+courrier — un tiers peut y saisir l'adresse de quelqu'un d'autre, qui
+recevra un lien non sollicité ; le limiteur de créations s'applique et
+le message dit d'ignorer, mais le risque résiduel existe et se pilote
+par la liste blanche (plus elle couvre, moins on envoie). Et
+`requested_by_email` est une **donnée personnelle stockée**, à dessein
+(traçabilité des cibles hors liste) : la purge d'un lien purge
+l'adresse.
+
+**Admin** : Basic sur TLS, PBKDF2 600 000 itérations, comparaison en
+temps constant, 404 sans empreinte configurée, garde `Sec-Fetch-Site`
+fermée sur les actions. Ce n'est pas du SSO : le chapitre 07 reste la
+cible quand des rôles apparaîtront.
+
 **CORS** : rien par défaut, liste explicite sinon.
 
 **Chaîne d'approvisionnement** : trois verrous hachés, installation en

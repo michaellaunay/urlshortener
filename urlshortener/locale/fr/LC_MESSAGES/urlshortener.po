@@ -166,3 +166,23 @@ msgstr "Cette requête est trop volumineuse."
 #: urlshortener/views.py
 msgid "error_cross_site"
 msgstr "Ce formulaire ne peut pas être soumis depuis un autre site."
+
+#: urlshortener/views.py
+msgid "error_url_not_whitelisted"
+msgstr "Cette destination n'est pas sur la liste blanche. Saisissez votre adresse e-mail et le lien court vous sera envoyé."
+
+#: urlshortener/views.py
+msgid "error_email_invalid"
+msgstr "Ceci ne ressemble pas à une adresse e-mail valide."
+
+#: urlshortener/views.py
+msgid "error_mail_failed"
+msgstr "Le lien court n'a pas pu être envoyé. Rien n'est parti ; réessayez plus tard."
+
+#: urlshortener/views.py
+msgid "mail_short_link_subject"
+msgstr "Votre lien court"
+
+#: urlshortener/views.py
+msgid "mail_short_link_body"
+msgstr "Voici le lien court que vous avez demandé :\n\n  ${short_url}\n\nIl pointe vers :\n\n  ${target}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message ; rien d'autre n'a été fait de votre adresse."

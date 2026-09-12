@@ -166,3 +166,23 @@ msgstr "Diese Anfrage ist zu groß."
 #: urlshortener/views.py
 msgid "error_cross_site"
 msgstr "Dieses Formular kann nicht von einer anderen Website gesendet werden."
+
+#: urlshortener/views.py
+msgid "error_url_not_whitelisted"
+msgstr "Dieses Ziel steht nicht auf der Positivliste. Geben Sie Ihre E-Mail-Adresse ein, und der Kurzlink wird Ihnen zugesandt."
+
+#: urlshortener/views.py
+msgid "error_email_invalid"
+msgstr "Das sieht nicht wie eine gültige E-Mail-Adresse aus."
+
+#: urlshortener/views.py
+msgid "error_mail_failed"
+msgstr "Der Kurzlink konnte nicht gesendet werden. Es wurde nichts zugestellt; bitte später erneut versuchen."
+
+#: urlshortener/views.py
+msgid "mail_short_link_subject"
+msgstr "Ihr Kurzlink"
+
+#: urlshortener/views.py
+msgid "mail_short_link_body"
+msgstr "Hier ist der gewünschte Kurzlink:\n\n  ${short_url}\n\nEr verweist auf:\n\n  ${target}\n\nFalls Sie ihn nicht angefordert haben, ignorieren Sie diese Nachricht; mit Ihrer Adresse wurde nichts weiter getan."

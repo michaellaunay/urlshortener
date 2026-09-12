@@ -19,9 +19,10 @@ link from a working one.
 from __future__ import annotations
 
 import logging
+import re
 from urllib.parse import urlsplit
 
-from pyramid.httpexceptions import HTTPFound, HTTPNotFound, HTTPSeeOther
+from pyramid.httpexceptions import HTTPFound, HTTPGone, HTTPNotFound, HTTPSeeOther
 from pyramid.interfaces import IRoutesMapper
 from pyramid.view import notfound_view_config, view_config
 
@@ -33,8 +34,10 @@ from .constants_and_globals import (
     _,
 )
 from .services import CodeExhausted, count_links, create_link, find_by_code, record_hit
+from .whitelist import is_whitelisted
 from .throttle import client_identity
-from .urlvalidation import InvalidURL, to_wire_url
+from .mailer import MailNotSent
+from .urlvalidation import InvalidURL, to_wire_url, normalise_url
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +72,20 @@ ERROR_MESSAGES = {
     "error_cross_site": _(
         "error_cross_site",
         default="This form cannot be submitted from another website.",
+    ),
+    "error_url_not_whitelisted": _(
+        "error_url_not_whitelisted",
+        default="This destination is not on the allow-list. Enter your e-mail "
+                "address and the short link will be sent to you.",
+    ),
+    "error_email_invalid": _(
+        "error_email_invalid",
+        default="That does not look like a valid e-mail address.",
+    ),
+    "error_mail_failed": _(
+        "error_mail_failed",
+        default="The short link could not be sent. Nothing was delivered; "
+                "please try again later.",
     ),
     "error_rate_limited": _(
         "error_rate_limited", default="Too many links created from here. Try again shortly."
@@ -114,6 +131,11 @@ NON_RETURNABLE_ROUTES = {
     "healthz": "not a page",
     "api_shorten": "not a page",
     "api_link": "not a page",
+    # After choosing a language on the admin page, coming back there
+    # would first bounce through Basic auth again; the home page is the
+    # safer landing, and an operator knows the way back.
+    "admin": "authenticated area; the language switch lands on home",
+    "admin_action": "POST target, not a page",
     # Registered by add_static_view, not by routes.py; it serves the
     # stylesheet and the script, never a page.
     "__static/": "static assets, not a page",
@@ -172,6 +194,9 @@ def _page_context(request, with_count=True, **extra):
         "short_code": None,
         "error": None,
         "already_existed": False,
+        "ask_email": False,
+        "sent_by_mail": False,
+        "notice": None,
     }
     context.update(extra)
     return context
@@ -223,6 +248,41 @@ def cross_site_creation(request) -> bool:
     if not site:
         return False
     return site.strip().lower() not in ALLOWED_FETCH_SITES
+
+
+#: Deliberately simple: one @, no spaces, a dot in the domain. The real
+#: validation is the delivery itself — only a mailbox that exists
+#: receives the link, which is the whole point of the flow.
+EMAIL_SHAPE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+#: The translated pieces of the delivery message. The subject and body
+#: live here rather than in the mailer so the catalogue tests see them.
+MAIL_MESSAGES = {
+    "mail_short_link_subject": _(
+        "mail_short_link_subject", default="Your short link"
+    ),
+    "mail_short_link_body": _(
+        "mail_short_link_body",
+        default="Here is the short link you asked for:\n\n  ${short_url}\n\n"
+                "It points to:\n\n  ${target}\n\n"
+                "If you did not request it, ignore this message; nothing else "
+                "was done with your address.",
+    ),
+}
+
+
+def deliver_short_link(request, link, recipient) -> None:
+    """Send the short link, in the visitor's language."""
+    localizer = request.localizer
+    subject = localizer.translate(MAIL_MESSAGES["mail_short_link_subject"])
+    body = localizer.translate(
+        MAIL_MESSAGES["mail_short_link_body"],
+        mapping={
+            "short_url": request.app_settings.short_url(link.code),
+            "target": link.url,
+        },
+    )
+    request.mailer.send(recipient, subject, body)
 
 
 def body_too_large(request) -> bool:
@@ -332,6 +392,17 @@ def _legacy_get_json(request, raw_url):
             "original_url": raw_url,
         }
     try:
+        gate_target = normalise_url(raw_url, request.app_settings)
+        if not is_whitelisted(gate_target, request.app_settings):
+            # 403 in the 2016 body shape: an old client's parser reads
+            # the refusal instead of choking on it. No e-mail step on a
+            # machine entry point — the form is where a human is.
+            request.response.status_int = 403
+            return {
+                "code": "ERROR",
+                "error": "error_url_not_whitelisted",
+                "original_url": raw_url,
+            }
         link, _created = create_link(request.dbsession, raw_url, request.app_settings)
     except InvalidURL as invalid:
         request.response.status_int = 400
@@ -371,8 +442,43 @@ def shorten_form(request):
         return _page_context(
             request, submitted_url=raw_url, error=ERROR_MESSAGES["error_rate_limited"]
         )
+    settings = request.app_settings
     try:
-        link, created = create_link(request.dbsession, raw_url, request.app_settings)
+        canonical = normalise_url(raw_url, settings)
+    except InvalidURL as invalid:
+        request.response.status_int = 400
+        return _page_context(
+            request,
+            submitted_url=raw_url,
+            error=ERROR_MESSAGES.get(invalid.msgid, ERROR_MESSAGES["error_url_required"]),
+        )
+
+    email = (request.POST.get("email") or "").strip()
+    gated = not is_whitelisted(canonical, settings)
+    if gated and not email:
+        # Step two of the flow: same form, the e-mail field revealed,
+        # the URL carried over. 200, not an error status — nothing is
+        # wrong, something is asked.
+        return _page_context(
+            request,
+            submitted_url=raw_url,
+            ask_email=True,
+            notice=ERROR_MESSAGES["error_url_not_whitelisted"],
+        )
+    if gated and not EMAIL_SHAPE.match(email):
+        request.response.status_int = 400
+        return _page_context(
+            request,
+            submitted_url=raw_url,
+            ask_email=True,
+            error=ERROR_MESSAGES["error_email_invalid"],
+        )
+
+    try:
+        link, created = create_link(
+            request.dbsession, canonical, settings,
+            requested_by_email=email if gated else None,
+        )
     except InvalidURL as invalid:
         request.response.status_int = 400
         return _page_context(
@@ -381,15 +487,31 @@ def shorten_form(request):
             error=ERROR_MESSAGES.get(invalid.msgid, ERROR_MESSAGES["error_url_required"]),
         )
     except CodeExhausted:
-        log.error("code space exhausted at length %d", request.app_settings.code_length)
+        log.error("code space exhausted at length %d", settings.code_length)
         request.response.status_int = 503
         return _page_context(
             request, submitted_url=raw_url, error=ERROR_MESSAGES["error_code_exhausted"]
         )
+
+    if gated:
+        # The short link goes to the mailbox and NOT to the screen:
+        # showing it here would make the e-mail field a formality.
+        try:
+            deliver_short_link(request, link, email)
+        except MailNotSent:
+            request.response.status_int = 503
+            return _page_context(
+                request,
+                submitted_url=raw_url,
+                ask_email=True,
+                error=ERROR_MESSAGES["error_mail_failed"],
+            )
+        return _page_context(request, submitted_url=raw_url, sent_by_mail=True)
+
     return _page_context(
         request,
         submitted_url=link.url,
-        short_url=request.app_settings.short_url(link.code),
+        short_url=settings.short_url(link.code),
         short_code=link.code,
         already_existed=not created,
     )
@@ -402,6 +524,11 @@ def redirect(request):
     link = find_by_code(request.dbsession, code)
     if link is None:
         raise HTTPNotFound()
+    if link.blocked_at is not None:
+        # Blocked by an administrator: the endpoint existed, and the
+        # answer is that it is over. Nothing is counted — a stopped
+        # link has no visits, only knocks.
+        raise HTTPGone()
     record_hit(request.dbsession, link, request.app_settings)
     # to_wire_url even though creation already stored a wire-safe form:
     # the rows imported verbatim from the 2016 database never went

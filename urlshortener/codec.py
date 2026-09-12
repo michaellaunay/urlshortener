@@ -29,7 +29,7 @@ _ALPHABET_SET: Final = frozenset(ALPHABET)
 #: Codes never handed out, because a route already answers on them.
 #: `tests/test_codec.py` checks this set against the registered routes,
 #: so adding a route without reserving its name fails the suite.
-RESERVED_CODES: Final = frozenset({"api", "healthz", "static", "locale", "favicon.ico", "robots.txt"})
+RESERVED_CODES: Final = frozenset({"admin", "api", "healthz", "static", "locale", "favicon.ico", "robots.txt"})
 
 #: Bounds accepted by `is_valid_code`. The lower bound is 1 because the
 #: very first legacy code was the single character '0'.

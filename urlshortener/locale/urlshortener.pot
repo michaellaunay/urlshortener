@@ -166,3 +166,23 @@ msgstr ""
 #: urlshortener/views.py
 msgid "error_cross_site"
 msgstr ""
+
+#: urlshortener/views.py
+msgid "error_url_not_whitelisted"
+msgstr ""
+
+#: urlshortener/views.py
+msgid "error_email_invalid"
+msgstr ""
+
+#: urlshortener/views.py
+msgid "error_mail_failed"
+msgstr ""
+
+#: urlshortener/views.py
+msgid "mail_short_link_subject"
+msgstr ""
+
+#: urlshortener/views.py
+msgid "mail_short_link_body"
+msgstr ""

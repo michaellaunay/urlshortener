@@ -1,6 +1,67 @@
 Changelog
 =========
 
+2.1.0 (2026-08-22) — allow-list, delivery by e-mail, administrator (train 0026)
+--------------------------------------------------------------------------------
+
+A MINOR version, not a patch: the first functional addition since the
+rewrite. Requested flow, implemented as stated:
+
+1. the visitor submits a URL;
+2. on the allow-list -> the short URL, on the spot, exactly as before;
+3. otherwise the form says so and asks for an e-mail address, carrying
+   the URL over — nothing is created at this step;
+4. address given -> the link is created and SENT TO THE MAILBOX; the
+   screen says so and shows no short URL, because showing it would make
+   the e-mail field a formality.
+
+- **Allow-list** (``urlshortener.whitelist``): three entry forms —
+  host patterns (``*.example.coop``, fnmatch), URL patterns
+  (``https://docs.example.org/*``) and ``re:…`` regular expressions —
+  all matched on the CANONICAL form, so the IDNA rules of train 0012
+  apply to the list exactly as to the target. **An empty list allows
+  everything**: that is the 2016/KuneAgi compatibility stance, pinned
+  by its own test, and gating is opt-in. Start-up refuses a non-empty
+  list without ``smtp_host``/``mail_sender`` — a gate whose other door
+  leads nowhere is a wall.
+- **Machine entry points do not get the e-mail step.** The API and
+  ``GET /?url=`` answer 403 ``error_url_not_whitelisted`` (2016 body
+  shape on the legacy path): an integration belongs ON the list, which
+  is what the list is for.
+- **Delivery** (``urlshortener/mailer.py``): one class, one method,
+  injected through the registry so tests substitute a recorder;
+  translated subject and body (4 languages); the recipient address is
+  never logged. ``requested_by_email`` is STORED on the link, on
+  purpose — the accountability the step exists to provide, a personal
+  datum said in the documentation rather than discovered, deleted with
+  the link.
+- **Administrator** (``/admin``): list, search, and stop. HTTP Basic
+  against a PBKDF2 hash (600,000 iterations,
+  ``python -m urlshortener.tools.hash_password``); with no hash
+  configured the area answers **404**, because a login door that
+  exists is a door to knock on. **Blocking beats deleting** and is the
+  recommended action: the row stays, the redirect answers 410, and
+  de-duplication hands the BLOCKED link back to whoever re-shortens
+  the same litigious URL — after a delete, the same target is one POST
+  away from a fresh code. Both actions exist; the difference is
+  documented and tested.
+- **The admin guard fails CLOSED.** Public creation fails open on a
+  missing ``Sec-Fetch-Site`` because curl sends none and the attack
+  lives in browsers; an admin action is the privileged case the
+  security chapter said the open guard is no substitute for. Basic
+  credentials ride on any request a hostile page makes the browser
+  send, so here absence refuses, and a script must say
+  ``-H 'Sec-Fetch-Site: none'`` on purpose.
+- **Schema step 2** adds ``blocked_at`` and ``requested_by_email`` to
+  an existing database, idempotently, with a test that runs it against
+  a version-1 file carrying data.
+- One transactional lesson, recorded because it silently undid admin
+  actions in development: pyramid_tm reads a RAISED redirect as a
+  failure and aborts. The post-action redirect is RETURNED.
+- ``admin`` joins ``RESERVED_CODES``. A 2016 corpus row carrying that
+  code would now be refused by the import, reported as such.
+
+
 2.0.25 (2026-08-23) — file the third pass, and the pass that crossed it (train 0025)
 --------------------------------------------------------------------------------------
 

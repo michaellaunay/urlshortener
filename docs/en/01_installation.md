@@ -58,7 +58,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-534 tests, 91% coverage. The three exact quality-CI commands — run
+575 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
@@ -151,6 +151,12 @@ matching environment variable. Precedence is
 | `urlshortener.blocked_hosts` | `URLSHORTENER_BLOCKED_HOSTS` | empty | Hosts always refused, subdomains included |
 | `urlshortener.count_hits` | `URLSHORTENER_COUNT_HITS` | `true` | Count redirects |
 | `urlshortener.enable_legacy_get` | `URLSHORTENER_ENABLE_LEGACY_GET` | `true` | Serve `GET /?url=` (2016) |
+| `urlshortener.whitelist` | `URLSHORTENER_WHITELIST` | *(empty)* | Targets shortened without e-mail; empty = everything |
+| `urlshortener.smtp_host` | `URLSHORTENER_SMTP_HOST` | *(empty)* | SMTP relay of the e-mail flow |
+| `urlshortener.smtp_port` | `URLSHORTENER_SMTP_PORT` | `25` | Relay port |
+| `urlshortener.smtp_starttls` | `URLSHORTENER_SMTP_STARTTLS` | `false` | STARTTLS towards the relay |
+| `urlshortener.mail_sender` | `URLSHORTENER_MAIL_SENDER` | *(empty)* | From: of the messages |
+| `urlshortener.admin_password_hash` | `URLSHORTENER_ADMIN_PASSWORD_HASH` | *(empty)* | PBKDF2 hash of the admin; empty = /admin is 404 |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Creations per window per address |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Window length |
 | `urlshortener.throttle_max_reads` | `URLSHORTENER_THROTTLE_MAX_READS` | `0` | API reads per window (0 = unlimited) |

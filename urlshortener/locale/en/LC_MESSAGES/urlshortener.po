@@ -166,3 +166,23 @@ msgstr "That request is too large."
 #: urlshortener/views.py
 msgid "error_cross_site"
 msgstr "This form cannot be submitted from another website."
+
+#: urlshortener/views.py
+msgid "error_url_not_whitelisted"
+msgstr "This destination is not on the allow-list. Enter your e-mail address and the short link will be sent to you."
+
+#: urlshortener/views.py
+msgid "error_email_invalid"
+msgstr "That does not look like a valid e-mail address."
+
+#: urlshortener/views.py
+msgid "error_mail_failed"
+msgstr "The short link could not be sent. Nothing was delivered; please try again later."
+
+#: urlshortener/views.py
+msgid "mail_short_link_subject"
+msgstr "Your short link"
+
+#: urlshortener/views.py
+msgid "mail_short_link_body"
+msgstr "Here is the short link you asked for:\n\n  ${short_url}\n\nIt points to:\n\n  ${target}\n\nIf you did not request it, ignore this message; nothing else was done with your address."

@@ -178,11 +178,15 @@ database shows. This is the image's `HEALTHCHECK` probe.
 | `error_url_blocked` | 400 | Host on the block list |
 | `error_url_control_characters` | 400 | Control characters |
 | `error_cross_site` | 403 | Creation submitted from another site (`Sec-Fetch-Site`) |
+| `error_url_not_whitelisted` | 403 | Target outside the allow-list (API/legacy; the form offers e-mail delivery) |
+| `error_email_invalid` | 400 | Malformed e-mail address (form) |
+| `error_mail_failed` | 503 | The SMTP relay refused; nothing was delivered |
 | `error_content_type_required` | 415 | API called without `Content-Type: application/json` |
 | `error_body_too_large` | 413 | Request body beyond `max_body_bytes` |
 | `error_rate_limited` | 429 | Creation limit reached |
 | `error_code_exhausted` | 503 | No free code — raise `code_length` |
 | `error_unknown_code` | 404 | Unknown code (API v1) |
+| `error_link_blocked` | 410 | Link stopped by the administrator |
 | `error_legacy_get_disabled` | 410 | `GET /?url=` switched off by configuration |
 
 These identifiers are also the `msgid` values of the translation
@@ -201,3 +205,46 @@ service really is public.
 `?_LOCALE_=fr` on any page, or `GET /locale/fr`, which sets a
 `_LOCALE_` cookie for a year. Failing that, `Accept-Language` is
 negotiated, then English.
+
+
+## Allow-list and delivery by e-mail
+
+As soon as `urlshortener.whitelist` is non-empty, a target outside the
+list no longer gets its link on screen: the form asks for an e-mail
+address and **the link goes to the mailbox**, not to the page — showing
+it would make the field decorative. The three entry forms and the
+"empty list allows everything" semantics are in
+[Installation](01_installation.md); matching runs on the **canonical**
+form, so the IDNA rules apply to the list exactly as to the target.
+
+The API and `GET /?url=` offer no e-mail step: an integration belongs
+**on** the list, which is what the list is for. Answer: `403`
+`error_url_not_whitelisted`.
+
+The delivered address is **stored** on the link (`requested_by_email`)
+and visible to the administrator: that is the accountability the step
+exists to provide, and it is a personal datum — said here rather than
+discovered.
+
+## Administration
+
+`GET /admin` — list, search (`?q=`: exact code or target fragment),
+pagination. `POST /admin/action` with `code` and `action` (`block`,
+`unblock`, `delete`).
+
+Authentication is **HTTP Basic** against
+`urlshortener.admin_password_hash` (produced by
+`python -m urlshortener.tools.hash_password`); no hash configured = the
+area answers **404**, not 401 — a login door that exists is a door to
+knock on. TLS is assumed: the whole service is documented behind nginx.
+
+**Blocking beats deleting**, and is the recommended action for a
+litigious link: the row stays, the redirect answers `410`, and
+de-duplication hands the *blocked* link back to whoever re-shortens the
+same URL — after a delete, the same target is one `POST` away from a
+fresh code.
+
+On `/admin/action` the `Sec-Fetch-Site` guard **fails closed**, unlike
+public creation: Basic credentials ride on any request a hostile page
+makes the browser send. A script driving the admin must say
+`-H 'Sec-Fetch-Site: none'` on purpose.

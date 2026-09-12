@@ -182,11 +182,15 @@ inaccessible se voit. C'est la sonde du `HEALTHCHECK` de l'image.
 | `error_url_blocked` | 400 | Hôte de la liste noire |
 | `error_url_control_characters` | 400 | Caractères de contrôle |
 | `error_cross_site` | 403 | Création soumise depuis un autre site (`Sec-Fetch-Site`) |
+| `error_url_not_whitelisted` | 403 | Cible hors liste blanche (API/legacy ; le formulaire propose l'envoi par e-mail) |
+| `error_email_invalid` | 400 | Adresse e-mail mal formée (formulaire) |
+| `error_mail_failed` | 503 | Le relais SMTP a refusé ; rien n'a été livré |
 | `error_content_type_required` | 415 | API appelée sans `Content-Type: application/json` |
 | `error_body_too_large` | 413 | Corps de requête au-delà de `max_body_bytes` |
 | `error_rate_limited` | 429 | Limite de créations atteinte |
 | `error_code_exhausted` | 503 | Aucun code libre — augmenter `code_length` |
 | `error_unknown_code` | 404 | Code inconnu (API v1) |
+| `error_link_blocked` | 410 | Lien arrêté par l'administrateur |
 | `error_legacy_get_disabled` | 410 | `GET /?url=` coupé par configuration |
 
 Ces identifiants sont aussi les `msgid` du catalogue de traduction :
@@ -215,3 +219,48 @@ navigateur qui lit un 204 sans eux refuse l'appel de lui-même.
 `?_LOCALE_=fr` sur n'importe quelle page, ou `GET /locale/fr` qui pose
 un cookie `_LOCALE_` d'un an. À défaut, `Accept-Language` est négocié,
 puis l'anglais.
+
+
+## Liste blanche et envoi par e-mail
+
+Dès que `urlshortener.whitelist` est non vide, une cible hors liste ne
+reçoit plus son lien à l'écran : le formulaire demande une adresse
+e-mail et **le lien part dans la boîte**, pas sur la page — l'afficher
+rendrait le champ décoratif. Les trois formes d'entrées et la
+sémantique « liste vide = tout autorisé » sont au chapitre
+[Installation](01_installation.md) ; l'appariement se fait sur la forme
+**canonique**, donc les règles IDNA s'appliquent à la liste comme à la
+cible.
+
+L'API et `GET /?url=` ne proposent pas l'étape e-mail : une intégration
+a sa place **sur** la liste, c'est à ça qu'elle sert. Réponse `403`
+`error_url_not_whitelisted`.
+
+L'adresse livrée est **stockée** sur le lien (`requested_by_email`) et
+visible de l'administrateur : c'est la traçabilité que l'étape existe
+pour fournir, et c'est une donnée personnelle — dit ici plutôt que
+découvert.
+
+## Administration
+
+`GET /admin` — liste, recherche (`?q=` : code exact ou fragment de
+cible), pagination. `POST /admin/action` avec `code` et `action`
+(`block`, `unblock`, `delete`).
+
+Authentification **HTTP Basic** contre `urlshortener.admin_password_hash`
+(générée par `python -m urlshortener.tools.hash_password`) ; empreinte
+absente = la zone répond **404**, pas 401 — une porte de connexion qui
+existe est une porte où frapper. TLS supposé : tout le service est
+documenté derrière nginx.
+
+**Bloquer vaut mieux que supprimer**, et c'est l'action recommandée
+pour un lien litigieux : la ligne reste, la redirection répond `410`,
+et la déduplication rend le lien *bloqué* à quiconque re-raccourcit la
+même URL — après une suppression, la même cible est à un `POST` d'un
+code neuf.
+
+Sur `/admin/action`, la garde `Sec-Fetch-Site` **échoue fermée**,
+contrairement à la création publique : les identifiants Basic voyagent
+sur toute requête qu'une page hostile fait émettre au navigateur. Un
+script qui pilote l'admin doit dire `-H 'Sec-Fetch-Site: none'`
+volontairement.

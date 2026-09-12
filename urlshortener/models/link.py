@@ -57,6 +57,18 @@ class Link(Base):
     last_hit_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
+    #: Set by an administrator: the redirect answers 410 Gone and the
+    #: row stays. Blocking rather than deleting is deliberate — see
+    #: `services.block_link`.
+    blocked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    #: The address a non-whitelisted creation was delivered to. A
+    #: personal datum, stored on purpose: it is the accountability the
+    #: e-mail step exists to provide, and the admin page shows it.
+    requested_by_email: Mapped[str] = mapped_column(
+        String(254), nullable=True, default=None
+    )
 
     __table_args__ = (
         Index("uq_links_url_sha256", "url_sha256", unique=True),

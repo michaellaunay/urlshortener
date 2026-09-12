@@ -134,6 +134,20 @@ same-site inclusion (covered by D-02's `same-site` trust) and
 non-browser clients, which send nothing. Closing it entirely remains
 `enable_legacy_get = false` (chapter 02).
 
+**E-mail flow**: two named risks. It is a mail-sending endpoint — a
+third party can type someone else's address, who then receives an
+unsolicited link; the creation limiter applies and the message says to
+ignore it, but the residual risk exists and is steered by the
+allow-list (the more it covers, the less is sent). And
+`requested_by_email` is a **stored personal datum**, on purpose
+(accountability for off-list targets): deleting a link deletes the
+address.
+
+**Admin**: Basic over TLS, PBKDF2 at 600,000 iterations, constant-time
+comparison, 404 with no hash configured, the `Sec-Fetch-Site` guard
+closed on actions. This is not SSO: chapter 07 remains the target once
+roles appear.
+
 **CORS**: nothing by default, an explicit list otherwise.
 
 **Supply chain**: three hashed locks, installation with

@@ -11,6 +11,7 @@ any prefix, with any database.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Final
 from urllib.parse import urlsplit
@@ -250,6 +251,30 @@ class AppSettings:
     #: callers have moved -- which is what the log line and the
     #: `Deprecation` header exist to make measurable.
     enable_legacy_get: bool = True
+    #: Targets that may be shortened WITHOUT the e-mail step.
+    #:
+    #: Whitespace-separated entries, three forms:
+    #:   example.coop  *.example.coop   -> fnmatch on the CANONICAL host
+    #:   https://example.org/docs/*     -> fnmatch on the canonical URL
+    #:   re:^https://ex\.org/\d+$       -> regular expression, fullmatch
+    #:
+    #: EMPTY MEANS EVERYTHING IS ALLOWED. That is the compatibility
+    #: stance, not an oversight: the 2016 contract and KuneAgi both
+    #: expect a URL in, a short URL out, and gating is opt-in for the
+    #: operator who wants it. The moment one entry exists, every
+    #: non-matching target goes through the e-mail flow instead.
+    whitelist: tuple = ()
+    #: SMTP relay for the e-mail flow. Empty = no mail can be sent, so
+    #: validate() refuses a non-empty whitelist without it.
+    smtp_host: str = ""
+    smtp_port: int = 25
+    smtp_starttls: bool = False
+    #: The From: of the delivery messages.
+    mail_sender: str = ""
+    #: PBKDF2 hash of the admin password, produced by
+    #: `python -m urlshortener.tools.hash_password`. Empty = the /admin
+    #: area answers 404 and no credential unlocks it.
+    admin_password_hash: str = ""
     #: Creations allowed per client address and per window.
     throttle_max_creations: int = 30
     throttle_window_seconds: int = 300
@@ -314,6 +339,18 @@ class AppSettings:
                 get("enable_legacy_get", "URLSHORTENER_ENABLE_LEGACY_GET"),
                 cls.enable_legacy_get,
             ),
+            whitelist=tuple(
+                (get("whitelist", "URLSHORTENER_WHITELIST") or "").split()
+            ),
+            smtp_host=(get("smtp_host", "URLSHORTENER_SMTP_HOST") or "").strip(),
+            smtp_port=as_int(get("smtp_port", "URLSHORTENER_SMTP_PORT"), cls.smtp_port),
+            smtp_starttls=as_bool(
+                get("smtp_starttls", "URLSHORTENER_SMTP_STARTTLS"), cls.smtp_starttls
+            ),
+            mail_sender=(get("mail_sender", "URLSHORTENER_MAIL_SENDER") or "").strip(),
+            admin_password_hash=(
+                get("admin_password_hash", "URLSHORTENER_ADMIN_PASSWORD_HASH") or ""
+            ).strip(),
             throttle_max_creations=as_int(
                 get("throttle_max_creations", "URLSHORTENER_THROTTLE_MAX"),
                 cls.throttle_max_creations,
@@ -405,6 +442,31 @@ class AppSettings:
             problems.append(
                 "throttle_window_seconds must be at least 1 when read throttling is "
                 "on (got %d)" % self.throttle_window_seconds
+            )
+
+        for entry in self.whitelist:
+            if entry.startswith("re:"):
+                try:
+                    re.compile(entry[3:])
+                except re.error as error:
+                    problems.append(
+                        "whitelist entry %r is not a valid regular expression: %s"
+                        % (entry, error)
+                    )
+        if self.whitelist and not (self.smtp_host and self.mail_sender):
+            # Two settings each fine alone and jointly impossible: with
+            # a whitelist and no mail relay, every non-matching URL is
+            # promised a delivery nothing can perform.
+            problems.append(
+                "whitelist is set but smtp_host/mail_sender are not: the e-mail "
+                "flow for non-whitelisted URLs could never deliver anything"
+            )
+        if self.admin_password_hash and not re.match(
+            r"^pbkdf2\$\d+\$[0-9a-f]{32}\$[0-9a-f]{64}$", self.admin_password_hash
+        ):
+            problems.append(
+                "admin_password_hash is not in the pbkdf2$iterations$salt$hash "
+                "form — generate it with `python -m urlshortener.tools.hash_password`"
             )
 
         for origin in self.cors_origins:

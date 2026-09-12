@@ -21,6 +21,8 @@ from pyramid.httpexceptions import HTTPNoContent
 from pyramid.view import view_config
 
 from .services import CodeExhausted, create_link, find_by_code
+from .urlvalidation import normalise_url
+from .whitelist import is_whitelisted
 from .views import _client_key, body_too_large, cross_site_creation
 from .urlvalidation import InvalidURL
 
@@ -107,6 +109,18 @@ def api_shorten(request):
     raw_url = body.get("url")
 
     try:
+        canonical = normalise_url(raw_url, request.app_settings)
+        if not is_whitelisted(canonical, request.app_settings):
+            # The API is for integrations, and an integration's targets
+            # belong ON the whitelist: that is what the list is for.
+            # The e-mail flow is the HUMAN fallback and lives on the
+            # form, so here the refusal names the setting to change.
+            return _error(
+                request, 403, "error_url_not_whitelisted",
+                "This destination is not on the allow-list. Add it to "
+                "urlshortener.whitelist, or use the form, which offers "
+                "delivery by e-mail.",
+            )
         link, created = create_link(request.dbsession, raw_url, request.app_settings)
     except InvalidURL as invalid:
         return _error(
@@ -131,6 +145,9 @@ def api_link(request):
     link = find_by_code(request.dbsession, request.matchdict["code"])
     if link is None:
         return _error(request, 404, "error_unknown_code", "No such short code.")
+    if link.blocked_at is not None:
+        return _error(request, 410, "error_link_blocked",
+                      "This link was stopped by the administrator.")
     return _link_json(request, link)
 
 

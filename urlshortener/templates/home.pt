@@ -20,9 +20,18 @@
       <p class="field-help" i18n:translate="home_field_help">
         Only http:// and https:// addresses. The same address always gives the same short link.
       </p>
-    </form>
+      <div tal:condition="ask_email">
+        <label for="email" i18n:translate="email_label">Your e-mail address</label>
+        <input class="field" type="email" id="email" name="email"
+               required="required" autocomplete="email" />
+      </div>
+</form>
 
     <p class="notice notice-error" role="alert" tal:condition="error">${error}</p>
+    <p class="notice" role="status" tal:condition="notice">${notice}</p>
+    <p class="notice" role="status" tal:condition="sent_by_mail"
+       i18n:translate="notice_sent_by_mail">The short link has been sent to
+      your e-mail address.</p>
 
     <section class="result" tal:condition="short_url">
       <p class="result-label">

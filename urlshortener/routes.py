@@ -19,6 +19,8 @@ def includeme(config):
     config.add_route("set_locale", "/locale/{locale}")
     config.add_route("api_shorten", "/api/v1/shorten")
     config.add_route("api_link", "/api/v1/links/{code}")
+    config.add_route("admin", "/admin")
+    config.add_route("admin_action", "/admin/action")
     config.add_route("home", "/")
 
     # Catch-all LAST: this is the redirect.

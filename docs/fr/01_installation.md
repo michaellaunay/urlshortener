@@ -60,7 +60,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-534 tests, 91 % de couverture. Les trois commandes exactes de la CI
+575 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash
@@ -153,6 +153,12 @@ variable d'environnement correspondante. L'ordre est
 | `urlshortener.blocked_hosts` | `URLSHORTENER_BLOCKED_HOSTS` | vide | Hôtes toujours refusés, sous-domaines compris |
 | `urlshortener.count_hits` | `URLSHORTENER_COUNT_HITS` | `true` | Compter les redirections |
 | `urlshortener.enable_legacy_get` | `URLSHORTENER_ENABLE_LEGACY_GET` | `true` | Servir `GET /?url=` (2016) |
+| `urlshortener.whitelist` | `URLSHORTENER_WHITELIST` | *(vide)* | Cibles raccourcissables sans e-mail ; vide = tout |
+| `urlshortener.smtp_host` | `URLSHORTENER_SMTP_HOST` | *(vide)* | Relais SMTP du flux e-mail |
+| `urlshortener.smtp_port` | `URLSHORTENER_SMTP_PORT` | `25` | Port du relais |
+| `urlshortener.smtp_starttls` | `URLSHORTENER_SMTP_STARTTLS` | `false` | STARTTLS vers le relais |
+| `urlshortener.mail_sender` | `URLSHORTENER_MAIL_SENDER` | *(vide)* | Expéditeur des messages |
+| `urlshortener.admin_password_hash` | `URLSHORTENER_ADMIN_PASSWORD_HASH` | *(vide)* | Empreinte PBKDF2 de l'admin ; vide = /admin en 404 |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Créations par fenêtre et par adresse |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Durée de la fenêtre |
 | `urlshortener.throttle_max_reads` | `URLSHORTENER_THROTTLE_MAX_READS` | `0` | Lectures de l'API par fenêtre (0 = illimité) |
