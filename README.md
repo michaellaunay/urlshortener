@@ -78,12 +78,41 @@ curl -I http://localhost:5123/h6QStqWsRk3   # 302 -> https://example.org/a/long/
 - **Operable**: digest-pinned multi-stage image, hash-checked
   dependency locks, non-root, health check, backup script, schema
   upgrade steps.
-- **Tested**: 575 tests, 91% coverage, three CI workflows (unit,
+- **Gated, if you want it**: an allow-list (host and URL wildcards,
+  `re:…` regular expressions) shortens listed targets on the spot; any
+  other target is asked for an e-mail address and the short link goes
+  to the mailbox, not to the screen. An `/admin` page (HTTP Basic,
+  PBKDF2) lists every link, who asked for it, and can block — 410,
+  recreation-proof — or delete. Empty list = everything allowed, the
+  2016-compatible default.
+- **Tested**: 576 tests, 91% coverage, three CI workflows (unit,
   quality, container smoke).
 - **Audited**: one internal pass and four external passes (three by
   ChatGPT, one crossing pass by Claude), all filed under
   `docs/fr/audits/`, every fixable finding fixed with a regression
   test of its own.
+
+## The allow-list in one minute
+
+```ini
+urlshortener.whitelist =
+    example.coop *.example.coop
+    https://docs.example.org/*
+    re:^https://forum\.example\.net/t/\d+$
+urlshortener.smtp_host = localhost
+urlshortener.mail_sender = links@example.coop
+```
+
+Three entry forms, told apart by shape: a bare pattern matches the
+**host**, a pattern containing `://` matches the **whole URL**, a
+`re:` prefix is a regular expression (fullmatch). Everything is
+matched against the **canonical** form the service stores. Two rules
+bite: `*.example.coop` does **not** match the bare apex
+`example.coop` — list both, as above — and entries are separated by
+any whitespace, so an entry can never contain a space (in a regex,
+write `\s`). The full manual, including internationalised domains and
+a pre-deployment check, is in
+[docs/en/01_installation.md](docs/en/01_installation.md).
 
 ## Documentation
 

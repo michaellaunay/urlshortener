@@ -1,6 +1,34 @@
 Changelog
 =========
 
+2.1.1 (2026-08-22) — the allow-list has a manual (train 0027)
+---------------------------------------------------------------
+
+Documentation, plus one repair: the 2.1.0 commit as pushed had lost the
+``.env.example`` hunk — six variables absent, and
+``test_e04_every_documented_setting_is_forwarded[.env.example]`` was
+RED on the public head. The hunk is restored. That a red head could be
+pushed silently is the branch-protection point of audit passes 2 and 3,
+made flesh.
+
+- **The allow-list manual**, in both installation chapters: the three
+  entry forms with a matches/does-not-match table, the four rules that
+  bite — ``*.example.coop`` does not cover the bare apex; no space
+  inside an entry (the separator is whitespace, ini values may span
+  lines, write ``\s`` in a regex); matching runs on the CANONICAL
+  form, so internationalised domains are written in punycode, with the
+  one-liner to produce it; a non-empty list refuses to start without
+  the relay — the KuneAgi worked example, the single-line environment
+  form, and a copy-paste pre-deployment check.
+- **README**: a feature bullet and "the allow-list in one minute".
+- **Commented blocks in both ini files**, so the operator finds the
+  settings where every other setting lives.
+- One documentation lock: the API chapter points at the installation
+  chapter for the entry forms, and until now that pointer led to a
+  table row and nothing else. The manual's presence is now tested — a
+  cross-reference that promises content is a lock waiting to exist.
+
+
 2.1.0 (2026-08-22) — allow-list, delivery by e-mail, administrator (train 0026)
 --------------------------------------------------------------------------------
 

@@ -268,3 +268,17 @@ def test_governance_the_documented_checks_exist_in_the_workflows():
         "required on main but no workflow job reports it — update the "
         "branch protection AND this constant together: %s" % missing
     )
+
+
+def test_the_allow_list_manual_is_where_the_api_chapter_points():
+    """The API chapter says the entry forms are in the installation
+    chapter. When train 0026 was filed, that pointer led to a table row
+    and nothing else — a cross-reference that promises content is a
+    lock waiting to exist. The manual must show all three forms, the
+    apex trap, and the setting's environment name."""
+    for chapter in ("fr/01_installation.md", "en/01_installation.md"):
+        body = _read(ROOT, "docs", *chapter.split("/"))
+        assert "re:" in body, chapter
+        assert "*.example.coop" in body, chapter
+        assert "apex" in body.lower(), chapter
+        assert "URLSHORTENER_WHITELIST" in body, chapter

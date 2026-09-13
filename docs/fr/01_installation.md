@@ -34,6 +34,77 @@ répond `externally-managed-environment` (PEP 668) et suggère
 installerait dans le python du système. Activer le venv est la bonne
 réponse ; l'invite passe alors à `(.venv)`.
 
+
+### Construire la liste blanche
+
+La liste gouverne le formulaire : une cible **listée** reçoit son lien
+court à l'écran, une cible hors liste passe par l'étape e-mail. L'API
+et `GET /?url=` répondent `403` hors liste — une intégration a sa
+place *sur* la liste. **Liste vide = tout est autorisé** : c'est la
+position de compatibilité 2016, épinglée par un test ; le verrouillage
+est opt-in.
+
+Trois formes d'entrées, distinguées par leur forme :
+
+| Entrée | S'applique à | Exemple qui matche | Qui ne matche pas |
+|---|---|---|---|
+| motif nu (`fnmatch`) | l'**hôte** canonique | `*.example.coop` → `https://api.example.coop/x` | `https://example.coop/` (l'apex nu) |
+| motif avec `://` | l'**URL** canonique entière | `https://docs.example.org/*` → `…/guide` | `https://docs.example.org.evil.net/` |
+| `re:` + expression | l'URL canonique, `fullmatch` | `re:^https://n\.org/\d+$` → `https://n.org/123` | `https://n.org/abc` |
+
+Quatre règles qui mordent :
+
+1. **`*.example.coop` ne couvre pas l'apex nu `example.coop`.** C'est
+   le comportement `fnmatch`, pas un oubli : listez les deux,
+   `example.coop *.example.coop`.
+2. **Aucune espace dans une entrée.** Le séparateur est le blanc
+   (espaces *ou* retours à la ligne, la valeur ini peut donc être
+   multiligne). Dans une expression régulière, écrivez `\s`.
+3. **L'appariement se fait sur la forme canonique** — celle que le
+   service stocke : hôte en minuscules, IDN en punycode (train 0012).
+   Pour un domaine internationalisé, écrivez l'entrée en punycode :
+   `python3 -c "import idna; print(idna.encode('bücher.de').decode())"`
+   → `xn--bcher-kva.de`.
+4. **Liste non vide ⇒ relais obligatoire.** Sans `smtp_host` et
+   `mail_sender`, le démarrage refuse (« could never deliver ») : une
+   porte dont l'autre battant ne mène nulle part est un mur.
+
+Exemple complet, celui du déploiement KuneAgi :
+
+```ini
+urlshortener.whitelist =
+    publicpolicies.cosmopolitical.coop
+    *.cosmopolitical.coop
+urlshortener.smtp_host = localhost
+urlshortener.smtp_port = 25
+urlshortener.mail_sender = liens@cosmopolitical.coop
+```
+
+En variable d'environnement (Docker, systemd), même valeur sur une
+ligne : `URLSHORTENER_WHITELIST="publicpolicies.cosmopolitical.coop
+*.cosmopolitical.coop"`.
+
+Vérifier la liste **avant** de déployer, depuis le venv :
+
+```bash
+python3 - <<'EOF'
+from urlshortener.constants_and_globals import AppSettings
+from urlshortener.whitelist import is_whitelisted
+
+entries = "publicpolicies.cosmopolitical.coop *.cosmopolitical.coop"
+settings = AppSettings(whitelist=tuple(entries.split()),
+                       smtp_host="x", mail_sender="a@b.c")
+for url in ("https://publicpolicies.cosmopolitical.coop/page",
+            "https://cosmopolitical.coop/",
+            "https://ailleurs.example.net/"):
+    print("LISTÉE " if is_whitelisted(url, settings) else "e-mail ", url)
+EOF
+```
+
+L'administration de ce que la liste laisse passer — voir tout, bloquer
+le litigieux — est au chapitre [API](02_api.md), section
+« Administration ».
+
 ### Après un correctif qui touche aux verrous
 
 Un patch peut **ajouter une dépendance**. Les verrous changent alors, et
@@ -60,7 +131,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-575 tests, 91 % de couverture. Les trois commandes exactes de la CI
+576 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash

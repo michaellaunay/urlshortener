@@ -33,6 +33,76 @@ On Debian and Ubuntu a `pip install` run **before** activation answers
 the system python. Activating the virtualenv is the right answer; the
 prompt then shows `(.venv)`.
 
+
+### Building the allow-list
+
+The list governs the form: a **listed** target gets its short link on
+screen, anything else goes through the e-mail step. The API and
+`GET /?url=` answer `403` off-list — an integration belongs *on* the
+list. **An empty list allows everything**: that is the 2016
+compatibility stance, pinned by a test; gating is opt-in.
+
+Three entry forms, told apart by shape:
+
+| Entry | Applies to | Matches | Does not match |
+|---|---|---|---|
+| bare pattern (`fnmatch`) | the canonical **host** | `*.example.coop` → `https://api.example.coop/x` | `https://example.coop/` (the bare apex) |
+| pattern containing `://` | the whole canonical **URL** | `https://docs.example.org/*` → `…/guide` | `https://docs.example.org.evil.net/` |
+| `re:` + expression | the canonical URL, `fullmatch` | `re:^https://n\.org/\d+$` → `https://n.org/123` | `https://n.org/abc` |
+
+Four rules that bite:
+
+1. **`*.example.coop` does not cover the bare apex `example.coop`.**
+   That is `fnmatch` behaviour, not an oversight: list both,
+   `example.coop *.example.coop`.
+2. **No space inside an entry.** The separator is whitespace (spaces
+   *or* newlines, so the ini value can span lines). In a regular
+   expression, write `\s`.
+3. **Matching runs on the canonical form** — the one the service
+   stores: lowercase host, IDN in punycode (train 0012). For an
+   internationalised domain, write the entry in punycode:
+   `python3 -c "import idna; print(idna.encode('bücher.de').decode())"`
+   → `xn--bcher-kva.de`.
+4. **A non-empty list requires the relay.** Without `smtp_host` and
+   `mail_sender`, start-up refuses ("could never deliver"): a gate
+   whose other door leads nowhere is a wall.
+
+A complete example, the KuneAgi deployment's own:
+
+```ini
+urlshortener.whitelist =
+    publicpolicies.cosmopolitical.coop
+    *.cosmopolitical.coop
+urlshortener.smtp_host = localhost
+urlshortener.smtp_port = 25
+urlshortener.mail_sender = links@cosmopolitical.coop
+```
+
+As an environment variable (Docker, systemd), the same value on one
+line: `URLSHORTENER_WHITELIST="publicpolicies.cosmopolitical.coop
+*.cosmopolitical.coop"`.
+
+Check the list **before** deploying, from the venv:
+
+```bash
+python3 - <<'EOF'
+from urlshortener.constants_and_globals import AppSettings
+from urlshortener.whitelist import is_whitelisted
+
+entries = "publicpolicies.cosmopolitical.coop *.cosmopolitical.coop"
+settings = AppSettings(whitelist=tuple(entries.split()),
+                       smtp_host="x", mail_sender="a@b.c")
+for url in ("https://publicpolicies.cosmopolitical.coop/page",
+            "https://cosmopolitical.coop/",
+            "https://elsewhere.example.net/"):
+    print("LISTED" if is_whitelisted(url, settings) else "e-mail", url)
+EOF
+```
+
+Administering what the list lets through — seeing everything, blocking
+the litigious — is in the [API](02_api.md) chapter, section
+"Administration".
+
 ### After a patch that touches the locks
 
 A patch can **add a dependency**. The locks then change, and an
@@ -58,7 +128,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-575 tests, 91% coverage. The three exact quality-CI commands — run
+576 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
