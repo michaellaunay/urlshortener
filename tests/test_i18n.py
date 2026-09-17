@@ -131,7 +131,7 @@ def test_every_message_is_in_the_catalogue_template():
 
 class _Request:
     def __init__(self, params=None, cookies=None, headers=None):
-        self.params = params or {}
+        self.GET = params or {}
         self.cookies = cookies or {}
         self.headers = headers or {}
 

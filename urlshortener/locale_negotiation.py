@@ -50,7 +50,13 @@ def parse_accept_language(header: str):
 
 
 def negotiate(request) -> str:
-    requested = request.params.get(LOCALE_COOKIE)
+    # Locale selection is query-only: request.params also parses POST,
+    # including bodies which an error view has already refused to read.
+    # Keep error rendering usable even outside the normal query guard.
+    try:
+        requested = request.GET.get(LOCALE_COOKIE)
+    except UnicodeDecodeError:
+        requested = None
     if requested in AVAILABLE_LANGUAGES:
         return requested
 

@@ -12,6 +12,7 @@ from importlib.metadata import version as _distribution_version
 from dotenv import find_dotenv, load_dotenv
 from pyramid.config import Configurator
 from pyramid.events import NewResponse
+from pyramid.tweens import EXCVIEW
 
 from .constants_and_globals import AVAILABLE_LANGUAGES, AppSettings, DOMAIN
 from .locale_negotiation import locale_negotiator
@@ -146,6 +147,13 @@ def main(global_config, **settings):
         config.include("pyramid_chameleon")
         config.include(".models")
         config.include(".routes")
+
+        # Reject undecodable query strings before a view or its error
+        # renderer touches them. Do not eagerly parse request bodies.
+        config.add_tween(
+            "urlshortener.request_validation.utf8_query_tween_factory",
+            over=EXCVIEW,
+        )
 
         config.add_translation_dirs("urlshortener:locale/")
         config.registry.settings.setdefault("pyramid.default_locale_name", "en")
