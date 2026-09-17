@@ -36,6 +36,11 @@ def test_invalid_query_is_rejected_before_the_handler(query):
     response = utf8_query_tween_factory(forbidden_handler, None)(request)
     assert response.status_int == 400
     assert response.content_type == "text/plain"
+    assert response.charset == "UTF-8"
+    assert response.headers["Content-Type"] == "text/plain; charset=UTF-8"
+    # Check before reading .text/.body: WebOb may repair a missing length
+    # when the body is consumed, hiding the original response defect.
+    assert response.content_length == len(b"Invalid UTF-8 in query string.\n")
     assert response.text == "Invalid UTF-8 in query string.\n"
     assert response.headers["Cache-Control"] == "no-store"
 
@@ -116,7 +121,13 @@ def test_locale_falls_back_when_called_directly_with_an_invalid_query(headers, e
 def test_real_application_rejects_invalid_queries(testapp, path, query, method):
     response = getattr(testapp, method)(path + "?" + query, status=400)
     assert response.content_type == "text/plain"
+    assert response.charset == "UTF-8"
+    assert response.headers["Content-Type"] == "text/plain; charset=UTF-8"
+    # Check before reading .text/.body: WebOb may repair a missing length
+    # when the body is consumed, hiding the original response defect.
+    assert response.content_length == len(b"Invalid UTF-8 in query string.\n")
     assert response.text == "Invalid UTF-8 in query string.\n"
+    assert response.headers["Cache-Control"] == "no-store"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     # A rejected request must not poison subsequent requests.
     testapp.get("/", status=200)

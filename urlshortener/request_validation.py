@@ -25,13 +25,17 @@ def utf8_query_tween_factory(handler, registry):
         except UnicodeDecodeError:
             # A fixed response cannot recurse into locale negotiation,
             # render a template, or reflect attacker-controlled input.
-            return Response(
+            response = Response(
                 status=400,
                 content_type="text/plain",
                 charset="UTF-8",
                 text="Invalid UTF-8 in query string.\n",
-                headers={"Cache-Control": "no-store"},
             )
+            # Response(headers=...) replaces the entire header list after
+            # content_type/text have set Content-Type and Content-Length.
+            # Add this header to the existing mapping instead.
+            response.headers["Cache-Control"] = "no-store"
+            return response
         return handler(request)
 
     return utf8_query_tween
