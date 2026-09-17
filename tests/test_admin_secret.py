@@ -2,12 +2,15 @@
 """How the admin hash travels (train 0028).
 
 A real deployment refused to start: the hash reached the container as
-`pbkdf200000…`, because an unquoted shell had expanded `$600000`,
-`$salt` and `$hash` as empty variables. The hypothesis on the field was
+`pbkdf200000…`, because the hash was embedded in an unquoted shell
+assignment. `$600000` is `$6` followed by `00000`; each hexadecimal
+field expands differently depending on its first character. The exact
+corrupted value is not a constant. The hypothesis on the field was
 "the container has different seeds" — worth pinning the refutation:
 the salt travels IN the string, so the same value verifies anywhere,
 and what failed was the SHAPE check on an altered string.
 """
+import shlex
 import subprocess
 
 import pytest
@@ -31,17 +34,51 @@ def test_the_hash_is_machine_independent():
     assert verify_password("s3cret", str(stored))
 
 
-def test_an_unquoted_shell_eats_the_hash_and_validate_refuses():
-    """The reproduced field failure, end to end."""
+@pytest.mark.parametrize("salt", [
+    pytest.param(b"\xce" * 16, id="letter-salt-letter-digest"),
+    pytest.param(b"\xab" * 16, id="letter-salt-digit-digest"),
+    pytest.param(b"\x14" * 16, id="digit-salt-letter-digest"),
+    pytest.param(b"\x12" * 16, id="digit-salt-digit-digest"),
+    pytest.param(b"\x00" * 16, id="zero-salt"),
+    pytest.param(b"\xae" * 16, id="zero-digest"),
+])
+def test_an_unquoted_shell_eats_the_hash_and_validate_refuses(monkeypatch, salt):
+    """Test corruption, not one accidental result of random hex prefixes."""
+    def fixed_salt(size):
+        assert size == len(salt)
+        return salt
+
+    # Only this test fixes the salt; production still uses secrets.
+    monkeypatch.setattr(
+        "urlshortener.tools.hash_password.secrets.token_bytes", fixed_salt
+    )
     real = hash_password("x")
-    mangled = subprocess.run(
-        ["bash", "-c", "H=%s; echo $H" % real],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    assert mangled == "pbkdf200000"
+    AppSettings(admin_password_hash=real).validate()
+
+    def through_shell(assignment):
+        return subprocess.run(
+            [
+                "bash", "--noprofile", "--norc", "-c",
+                'H=%s; printf "%%s\\n" "$H"' % assignment,
+                "hash-transit-test",  # Explicit $0 for hex fields starting in 0.
+            ],
+            # Do not inherit BASH_ENV, shell options, or variables whose
+            # names happen to match one of the generated hex fields.
+            env={}, capture_output=True, text=True, check=True, timeout=5,
+        ).stdout.strip()
+
+    mangled = through_shell(real)
+    assert mangled.startswith("pbkdf200000")
+    assert mangled != real
+    assert "$" not in mangled
     with pytest.raises(ConfigurationError) as caught:
         AppSettings(admin_password_hash=mangled).validate()
     assert "pbkdf2$iterations$salt$hash" in str(caught.value)
+
+    # Positive control: protect the assignment, not just the later print.
+    preserved = through_shell(shlex.quote(real))
+    assert preserved == real
+    AppSettings(admin_password_hash=preserved).validate()
 
 
 def test_the_file_form_resolves_to_the_hash(tmp_path):

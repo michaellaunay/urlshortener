@@ -85,7 +85,7 @@ curl -I http://localhost:5123/h6QStqWsRk3   # 302 -> https://example.org/a/long/
   PBKDF2) lists every link, who asked for it, and can block — 410,
   recreation-proof — or delete. Empty list = everything allowed, the
   2016-compatible default.
-- **Tested**: 618 tests, 91% coverage, three CI workflows (unit,
+- **Tested**: 623 tests, 91% coverage, three CI workflows (unit,
   quality, container smoke).
 - **Audited**: one internal pass and four external passes (three by
   ChatGPT, one crossing pass by Claude), all filed under

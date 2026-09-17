@@ -41,10 +41,15 @@ L'empreinte produite par `python -m urlshortener.tools.hash_password`
 contient **trois `$`** (`pbkdf2$itérations$sel$empreinte`, 111
 caractères). Deux avaleurs classiques sur le chemin vers le conteneur :
 
-- un shell **sans guillemets** (`export H=pbkdf2$600000$…`) développe
-  `$600000`, `$sel`, `$empreinte` comme des variables vides — il reste
-  `pbkdf200000`, et le démarrage refuse avec « is not in the
-  pbkdf2$iterations$salt$hash form » ;
+- une **affectation sans guillemets** (`export H=pbkdf2$600000$…`)
+  déclenche les expansions du shell. `$600000` signifie `$6` suivi
+  du texte `00000`, pas une variable nommée `600000`. Chaque champ
+  hexadécimal peut commencer par une lettre ou un chiffre : `$abc`
+  est une variable, `$4abc` signifie `$4` suivi de `abc`, et `$0abc`
+  inclut le nom du shell. Le résultat altéré n'est donc pas toujours
+  exactement `pbkdf200000`. Le démarrage le refuse avec « is not in
+  the pbkdf2$iterations$salt$hash form ». Entourer la valeur littérale
+  complète de guillemets simples lors de l'affectation ;
 - l'interpolation de docker compose, qui veut les `$` **doublés**
   (`$$`) quand la valeur traverse le fichier compose.
 
@@ -167,7 +172,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-618 tests, 91 % de couverture. Les trois commandes exactes de la CI
+623 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash

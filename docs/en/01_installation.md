@@ -40,10 +40,14 @@ The hash printed by `python -m urlshortener.tools.hash_password`
 contains **three `$`** (`pbkdf2$iterations$salt$hash`, 111
 characters). Two classic eaters on the way into a container:
 
-- an **unquoted** shell (`export H=pbkdf2$600000$…`) expands
-  `$600000`, `$salt`, `$hash` as empty variables — `pbkdf200000`
-  remains, and start-up refuses with "is not in the
-  pbkdf2$iterations$salt$hash form";
+- an **unquoted assignment** (`export H=pbkdf2$600000$…`) triggers
+  shell expansion. `$600000` is `$6` followed by the literal `00000`,
+  not a variable named `600000`. Each hexadecimal field can start
+  with a letter or a digit: `$abc` is a named variable, `$4abc` is
+  `$4` followed by `abc`, and `$0abc` includes the shell's name.
+  The corrupted value is therefore not always exactly `pbkdf200000`.
+  Start-up refuses it with "is not in the pbkdf2$iterations$salt$hash
+  form". Single-quote the complete literal when assigning it;
 - docker compose interpolation, which wants the `$` **doubled**
   (`$$`) when the value travels through the compose file.
 
@@ -163,7 +167,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-618 tests, 91% coverage. The three exact quality-CI commands — run
+623 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
