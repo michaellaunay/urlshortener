@@ -34,6 +34,41 @@ the system python. Activating the virtualenv is the right answer; the
 prompt then shows `(.venv)`.
 
 
+### The admin hash and the `$` trap
+
+The hash printed by `python -m urlshortener.tools.hash_password`
+contains **three `$`** (`pbkdf2$iterations$salt$hash`, 111
+characters). Two classic eaters on the way into a container:
+
+- an **unquoted** shell (`export H=pbkdf2$600000$…`) expands
+  `$600000`, `$salt`, `$hash` as empty variables — `pbkdf200000`
+  remains, and start-up refuses with "is not in the
+  pbkdf2$iterations$salt$hash form";
+- docker compose interpolation, which wants the `$` **doubled**
+  (`$$`) when the value travels through the compose file.
+
+The hash itself is deterministic and **the salt is in the string**:
+the same value verifies on any machine — if start-up refuses, the
+string arrived altered, not the machine "seeded differently". One
+diagnostic command, host side:
+
+```bash
+docker compose -f docker/docker-compose.yaml config | grep ADMIN
+# what it prints IS what the application will receive — 111 characters,
+# three $, or transit ate it
+```
+
+**The robust form under Docker is the file** — no shell re-reads it:
+
+```bash
+python -m urlshortener.tools.hash_password > secrets/admin.hash
+# compose: mount ./secrets/admin.hash read-only, then
+# URLSHORTENER_ADMIN_PASSWORD_HASH_FILE=/run/secrets/admin.hash
+```
+
+Exactly one of the two settings may be set — both at once, or a
+missing, unreadable or empty file: refusal at start-up, with the path.
+
 ### Building the allow-list
 
 The list governs the form: a **listed** target gets its short link on
@@ -128,7 +163,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-576 tests, 91% coverage. The three exact quality-CI commands — run
+583 tests, 91% coverage. The three exact quality-CI commands — run
 these verbatim before any delivery:
 
 ```bash
@@ -227,6 +262,7 @@ matching environment variable. Precedence is
 | `urlshortener.smtp_starttls` | `URLSHORTENER_SMTP_STARTTLS` | `false` | STARTTLS towards the relay |
 | `urlshortener.mail_sender` | `URLSHORTENER_MAIL_SENDER` | *(empty)* | From: of the messages |
 | `urlshortener.admin_password_hash` | `URLSHORTENER_ADMIN_PASSWORD_HASH` | *(empty)* | PBKDF2 hash of the admin; empty = /admin is 404 |
+| `urlshortener.admin_password_hash_file` | `URLSHORTENER_ADMIN_PASSWORD_HASH_FILE` | *(empty)* | Path to a file holding the hash; exactly one of the two |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Creations per window per address |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Window length |
 | `urlshortener.throttle_max_reads` | `URLSHORTENER_THROTTLE_MAX_READS` | `0` | API reads per window (0 = unlimited) |

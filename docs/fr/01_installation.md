@@ -35,6 +35,42 @@ installerait dans le python du système. Activer le venv est la bonne
 réponse ; l'invite passe alors à `(.venv)`.
 
 
+### L'empreinte admin et le piège des `$`
+
+L'empreinte produite par `python -m urlshortener.tools.hash_password`
+contient **trois `$`** (`pbkdf2$itérations$sel$empreinte`, 111
+caractères). Deux avaleurs classiques sur le chemin vers le conteneur :
+
+- un shell **sans guillemets** (`export H=pbkdf2$600000$…`) développe
+  `$600000`, `$sel`, `$empreinte` comme des variables vides — il reste
+  `pbkdf200000`, et le démarrage refuse avec « is not in the
+  pbkdf2$iterations$salt$hash form » ;
+- l'interpolation de docker compose, qui veut les `$` **doublés**
+  (`$$`) quand la valeur traverse le fichier compose.
+
+Le hachage lui-même est déterministe et **le sel est dans la chaîne** :
+la même valeur se vérifie sur n'importe quelle machine — si le
+démarrage refuse, c'est que la chaîne est arrivée altérée, pas que la
+machine « a d'autres graines ». Diagnostic en une commande, côté hôte :
+
+```bash
+docker compose -f docker/docker-compose.yaml config | grep ADMIN
+# la valeur affichée EST ce que l'application recevra — 111 caractères,
+# trois $, sinon le transit l'a mangée
+```
+
+**La forme robuste sous Docker est le fichier** — aucun shell ne le
+relit :
+
+```bash
+python -m urlshortener.tools.hash_password > secrets/admin.hash
+# compose : monter ./secrets/admin.hash en lecture seule, puis
+# URLSHORTENER_ADMIN_PASSWORD_HASH_FILE=/run/secrets/admin.hash
+```
+
+Un seul des deux réglages peut être posé — les deux à la fois, un
+fichier absent, illisible ou vide : refus au démarrage, avec le chemin.
+
 ### Construire la liste blanche
 
 La liste gouverne le formulaire : une cible **listée** reçoit son lien
@@ -131,7 +167,7 @@ pytest -q
 pytest -q --cov=urlshortener --cov-report=term-missing
 ```
 
-576 tests, 91 % de couverture. Les trois commandes exactes de la CI
+583 tests, 91 % de couverture. Les trois commandes exactes de la CI
 qualité — à reproduire telles quelles avant toute livraison :
 
 ```bash
@@ -230,6 +266,7 @@ variable d'environnement correspondante. L'ordre est
 | `urlshortener.smtp_starttls` | `URLSHORTENER_SMTP_STARTTLS` | `false` | STARTTLS vers le relais |
 | `urlshortener.mail_sender` | `URLSHORTENER_MAIL_SENDER` | *(vide)* | Expéditeur des messages |
 | `urlshortener.admin_password_hash` | `URLSHORTENER_ADMIN_PASSWORD_HASH` | *(vide)* | Empreinte PBKDF2 de l'admin ; vide = /admin en 404 |
+| `urlshortener.admin_password_hash_file` | `URLSHORTENER_ADMIN_PASSWORD_HASH_FILE` | *(vide)* | Chemin d'un fichier contenant l'empreinte ; un seul des deux |
 | `urlshortener.throttle_max_creations` | `URLSHORTENER_THROTTLE_MAX` | `30` | Créations par fenêtre et par adresse |
 | `urlshortener.throttle_window_seconds` | `URLSHORTENER_THROTTLE_WINDOW` | `300` | Durée de la fenêtre |
 | `urlshortener.throttle_max_reads` | `URLSHORTENER_THROTTLE_MAX_READS` | `0` | Lectures de l'API par fenêtre (0 = illimité) |

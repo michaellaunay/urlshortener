@@ -155,6 +155,37 @@ class ConfigurationError(Exception):
     """
 
 
+def _resolve_admin_hash(value: str, path: str) -> str:
+    """The hash itself, wherever it was put.
+
+    Both set is refused rather than ranked: two sources that can
+    disagree are a question every reader answers differently, and this
+    is a credential. A missing or unreadable file is refused with its
+    path — silence here would mean an admin area that quietly never
+    opens.
+    """
+    if value and path:
+        raise ConfigurationError(
+            "refusing to start: both admin_password_hash and "
+            "admin_password_hash_file are set — choose one"
+        )
+    if not path:
+        return value
+    try:
+        with open(path, encoding="utf-8") as handle:
+            content = handle.read().strip()
+    except OSError as error:
+        raise ConfigurationError(
+            "refusing to start: admin_password_hash_file %r cannot be "
+            "read (%s)" % (path, error)
+        ) from error
+    if not content:
+        raise ConfigurationError(
+            "refusing to start: admin_password_hash_file %r is empty" % path
+        )
+    return content
+
+
 @dataclass(frozen=True)
 class AppSettings:
     """Effective configuration, resolved once at application start.
@@ -275,6 +306,12 @@ class AppSettings:
     #: `python -m urlshortener.tools.hash_password`. Empty = the /admin
     #: area answers 404 and no credential unlocks it.
     admin_password_hash: str = ""
+    #: Alternative to the above: a PATH to a file whose content is the
+    #: hash. The value contains three `$`, which shells and compose
+    #: interpolation both eat when quoting slips — a file has no such
+    #: appetite, and it is the Docker-secret shape. Exactly one of the
+    #: two may be set.
+    admin_password_hash_file: str = ""
     #: Creations allowed per client address and per window.
     throttle_max_creations: int = 30
     throttle_window_seconds: int = 300
@@ -348,8 +385,14 @@ class AppSettings:
                 get("smtp_starttls", "URLSHORTENER_SMTP_STARTTLS"), cls.smtp_starttls
             ),
             mail_sender=(get("mail_sender", "URLSHORTENER_MAIL_SENDER") or "").strip(),
-            admin_password_hash=(
-                get("admin_password_hash", "URLSHORTENER_ADMIN_PASSWORD_HASH") or ""
+            admin_password_hash=_resolve_admin_hash(
+                (get("admin_password_hash", "URLSHORTENER_ADMIN_PASSWORD_HASH") or "").strip(),
+                (get("admin_password_hash_file",
+                     "URLSHORTENER_ADMIN_PASSWORD_HASH_FILE") or "").strip(),
+            ),
+            admin_password_hash_file=(
+                get("admin_password_hash_file",
+                    "URLSHORTENER_ADMIN_PASSWORD_HASH_FILE") or ""
             ).strip(),
             throttle_max_creations=as_int(
                 get("throttle_max_creations", "URLSHORTENER_THROTTLE_MAX"),
